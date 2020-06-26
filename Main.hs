@@ -1,10 +1,11 @@
 module Main where
 
-import Control.Lens.At (at)
+import Control.Lens (to)
+import Control.Lens.At (at, ix)
 import Control.Lens.Operators
 import qualified Data.Aeson as Aeson
 import Data.Aeson (Value)
-import Data.Aeson.Lens (_Object)
+import Data.Aeson.Lens (_Object, _String)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -16,6 +17,7 @@ import qualified System.Process.Typed as Process
 
 data Command
   = TrackDependency Dependency
+  | UpdateDependency Text
   deriving (Show)
 
 data Dependency
@@ -32,10 +34,16 @@ data NdtError
   deriving (Show)
 
 commandParser :: Parser Command
-commandParser = hsubparser (command "track" (info trackOptions (progDesc "Track a new dependency")))
+commandParser =
+  hsubparser $
+    command "track" (info trackOptions (progDesc "Track a new dependency"))
+      <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
 
 trackOptions =
   TrackDependency <$> hsubparser (command "github" (info trackGitHubOptions (progDesc "Track a GitHub repository")))
+
+updateOptions =
+  UpdateDependency <$> argument str (metavar "DEPENDENCY")
 
 trackGitHubOptions =
   GithubDependency <$> (T.pack <$> argument str (metavar "NAME"))
@@ -54,13 +62,29 @@ dispatch (TrackDependency (GithubDependency dependencyKey uri fsm)) = do
   eitherErrorJson <- nixPrefetchGit uri fsm
   case eitherErrorJson of
     Left e -> print e -- TODO display error
+    Right json -> updateSources dependencyKey uri json
+dispatch (UpdateDependency dependencyKey) = do
+  decoded <- Aeson.eitherDecodeFileStrict @Value sourcesFilePath
+  case decoded of
+    Left e -> undefined -- TODO: cant decode the file
     Right json -> do
-      let (owner, repo) = parseOwnerAndRepo uri
-          json' =
-            json & _Object . at "owner" ?~ Aeson.toJSON owner
-            & _Object . at "repo" ?~ Aeson.toJSON repo
-            & _Object . at "type" ?~ "github"
-      withSources sourcesFilePath (_Object . at dependencyKey ?~ json')
+      let dep = json ^? _Object . ix dependencyKey
+      case dep of
+        Nothing -> undefined -- TODO: no dependency found for key
+        Just value -> do
+          let Just uri = (value ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI -- TODO: safe lookup
+          eitherErrorJson <- nixPrefetchGit uri False -- TODO: fetchSubmodules from dep
+          case eitherErrorJson of
+            Left e -> print e -- TODO display error
+            Right json -> updateSources dependencyKey uri json
+
+updateSources dependencyKey uri json = do
+  let (owner, repo) = parseOwnerAndRepo uri
+      json' =
+        json & _Object . at "owner" ?~ Aeson.toJSON owner
+          & _Object . at "repo" ?~ Aeson.toJSON repo
+          & _Object . at "type" ?~ "github"
+  withSources sourcesFilePath (_Object . at dependencyKey ?~ json')
 
 parseOwnerAndRepo :: URI -> (String, String)
 parseOwnerAndRepo uri = (owner, repo)
