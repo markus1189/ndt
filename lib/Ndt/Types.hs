@@ -47,6 +47,7 @@ data NdtException
   | UnreadableSources FilePath String
   | InvalidGitHubUri
   | MissingFieldInSources Text
+  | UnknownDependencyType Text
   deriving (Typeable)
 
 instance Exception NdtException
@@ -60,6 +61,7 @@ instance Show NdtException where
   show (UnreadableSources fp msg) = "could not read " <> fp <> ": " <> msg
   show InvalidGitHubUri = "invalid/missing github uri"
   show (MissingFieldInSources key) = "INTERNAL ERROR: could not find field in sources: " <> T.unpack key
+  show (UnknownDependencyType typ) = "Unknown dependency type: " <> T.unpack typ
 
 data Dependency
   = GithubDependency

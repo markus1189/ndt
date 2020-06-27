@@ -37,7 +37,6 @@ trackDependency (UrlDependency dk uri storeName) = do
   sources <- view sourcesFileL
   withSources (_Object . at dk ?~ json)
 
--- TODO: can't handle url deps, only github atm
 updateDependency :: Text -> RIO NdtEnv ()
 updateDependency dk = do
   sources <- view sourcesFileL
@@ -49,11 +48,18 @@ updateDependency dk = do
       case dep of
         Nothing -> throwM (NoSuchDependency dk)
         Just depValue -> do
-          let maybeUri = (depValue ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI
+          let typ = depValue ^? _Object . ix "type" . _String
+              maybeUri = (depValue ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI
               fetchSubmodules = Just True == depValue ^? _Object . ix "fetchSubmodules" . _Bool
+              storeName = depValue ^? _Object . ix "name" . _String . to T.unpack
           case maybeUri of
             Nothing -> throwM InvalidGitHubUri
-            Just uri -> trackDependency (GithubDependency dk uri fetchSubmodules)
+            Just uri ->
+              case typ of
+                Just "github" -> trackDependency (GithubDependency dk uri fetchSubmodules)
+                Just "url" -> trackDependency (UrlDependency dk uri storeName)
+                Just t -> throwM (UnknownDependencyType t)
+                Nothing -> throwM (UnknownDependencyType "<not present>")
 
 insertDependency :: Text -> Value -> RIO NdtEnv ()
 insertDependency dk json = do
