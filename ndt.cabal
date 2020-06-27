@@ -51,25 +51,50 @@ common exts
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TupleSections
-                     , TypeFamilies
                      , TypeApplications
+                     , TypeFamilies
                      , TypeSynonymInstances
                      , ViewPatterns
 
-executable ndt
-  import:              opts
-                     , exts
-  main-is:             Main.hs
-  build-depends:       base >=4.13 && <4.14
-                     , rio
+library
+  import:              exts
+                     , opts
+
+  hs-source-dirs:      lib
+
+  exposed-modules:     Ndt
+                     , Ndt.Types
+                     , Ndt.Fetch
+  build-depends:       base
                      , aeson
                      , aeson-pretty
                      , bytestring
                      , directory
                      , lens-aeson
+                     , microlens-platform
                      , network-uri
                      , optparse-applicative
+                     , rio >=0.1.16 && < 0.2
                      , text
                      , typed-process
+  default-language:    Haskell2010
+
+executable ndt
+  import:              exts
+                     , opts
+  hs-source-dirs:      exe
+  main-is:             Main.hs
+  build-depends:       base
+                     , aeson
+                     , aeson-pretty
+                     , bytestring
+                     , directory
+                     , lens-aeson
                      , microlens-platform
+                     , ndt
+                     , network-uri
+                     , optparse-applicative
+                     , rio
+                     , text
+                     , typed-process
   default-language:    Haskell2010
