@@ -1,9 +1,10 @@
 module Main where
 
+import RIO
+import RIO.Lens
+import Lens.Micro.Platform ((?~))
+import System.Directory (doesFileExist)
 import qualified Data.ByteString.Lazy as LBS
-import Control.Lens (to)
-import Control.Lens.At (at, ix)
-import Control.Lens.Operators
 import qualified Data.Aeson as Aeson
 import Data.Aeson (Value)
 import Data.Aeson.Lens (_Object, _String)
@@ -16,9 +17,28 @@ import System.Exit (ExitCode (..))
 import qualified System.Process.Typed as Process
 import Data.Aeson.Encode.Pretty (encodePretty', defConfig, Indent(Spaces), Config(..))
 
+
+class HasSourcesFile cfg where
+  sourcesFileL :: Lens' cfg FilePath
+
+class HasNixPrefetchAction cfg where
+  nixPrefetchActionL :: Lens' cfg (URI -> Bool -> IO Value)
+
 data NdtEnv
   = NdtEnv
       { _ndtEnvSourcesFile :: FilePath
+      , _ndtEnvNixPrefetchGitAction :: URI -> Bool -> IO Value
+      }
+
+instance HasNixPrefetchAction NdtEnv where
+  nixPrefetchActionL = lens _ndtEnvNixPrefetchGitAction (\x y -> x { _ndtEnvNixPrefetchGitAction = y})
+
+instance HasSourcesFile NdtEnv where
+  sourcesFileL = lens _ndtEnvSourcesFile (\x y -> x { _ndtEnvSourcesFile = y})
+
+data NdtGlobal
+  = NdtGlobal
+      { _ndtGlobalSourcesFile :: FilePath
       }
 
 data Command
@@ -34,15 +54,22 @@ data Dependency
       }
   deriving (Show)
 
-data NdtError
-  = NixPrefetchGitFailed ExitCode
+data NdtException
+  = NixPrefetchGitFailed Int
   | NixPrefetchGitAesonDecodeError String
-  deriving (Show)
+  | NoSuchDependency Text
+  deriving (Typeable)
 
-commandParser :: Parser (NdtEnv, Command)
+instance Exception NdtException
+
+instance Show NdtException where
+  show (NixPrefetchGitFailed ec) = "prefetching the git repository failed with exit code: " <> show ec
+  show (NixPrefetchGitAesonDecodeError msg) = "could not parse the output of nix-prefetch-git: " <> msg
+
+commandParser :: Parser (NdtGlobal, Command)
 commandParser =
   (,)
-    <$> ( NdtEnv
+    <$> ( NdtGlobal
             <$> strOption (long "sources" <> short 's' <> metavar "SOURCES_FILE" <> value "sources.json" <> showDefault <> help "Read dependencies from SOURCES_FILE")
         )
     <*> ( hsubparser $
@@ -64,43 +91,44 @@ trackGitHubOptions =
     <*> argument uriReadM (metavar "GITHUB_URL")
     <*> flag False True (long "fetch-submodules" <> help "Fetch submodules")
 
-opts :: ParserInfo (NdtEnv, Command)
+opts :: ParserInfo (NdtGlobal, Command)
 opts = info (commandParser <**> helper) (fullDesc <> header "Nix Dependency Tracker")
 
 main :: IO ()
 main = do
-  (env, options) <- execParser opts
-  dispatch env options
+  (env@(NdtGlobal sourcesFp), options) <- execParser opts
+  sourcesFilePresent <- doesFileExist sourcesFp
+  -- TODO: fail if not there or create an empty file?
+  let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess
+  runRIO ndtEnv $ dispatch options
 
-dispatch :: NdtEnv -> Command -> IO ()
-dispatch (NdtEnv sources) (TrackDependency (GithubDependency dependencyKey uri fsm)) = do
-  eitherErrorJson <- nixPrefetchGit uri fsm
-  case eitherErrorJson of
-    Left e -> print e -- TODO display error
-    Right json -> updateSources sources dependencyKey uri json
-dispatch (NdtEnv sources) (UpdateDependency dependencyKey) = do
-  decoded <- Aeson.eitherDecodeFileStrict @Value sources
+dispatch :: Command -> RIO NdtEnv ()
+dispatch (TrackDependency (GithubDependency dependencyKey uri fsm)) = do
+  fetchedJson <- nixPrefetchGit uri fsm
+  updateSources dependencyKey uri fetchedJson
+dispatch (UpdateDependency dependencyKey) = do
+  sources <- view sourcesFileL
+  decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Value sources
   case decoded of
-    Left _ -> undefined -- TODO: cant decode the file
+    Left msg -> throwM (NixPrefetchGitAesonDecodeError msg)
     Right json -> do
       let dep = json ^? _Object . ix dependencyKey
       case dep of
-        Nothing -> undefined -- TODO: no dependency found for key
+        Nothing -> throwM (NoSuchDependency dependencyKey)
         Just depValue -> do
           let Just uri = (depValue ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI -- TODO: safe lookup
-          eitherErrorJson <- nixPrefetchGit uri False -- TODO: fetchSubmodules from dep
-          case eitherErrorJson of
-            Left e -> print e -- TODO display error
-            Right fetchedJson -> updateSources sources dependencyKey uri fetchedJson
+          fetchedJson <- nixPrefetchGit uri False -- TODO: fetchSubmodules from dep
+          updateSources dependencyKey uri fetchedJson
 
-updateSources :: FilePath -> Text -> URI -> Value -> IO ()
-updateSources sources dependencyKey uri json = do
+updateSources :: Text -> URI -> Value -> RIO NdtEnv ()
+updateSources dependencyKey uri json = do
+  sources <- view sourcesFileL
   let (owner, repo) = parseOwnerAndRepo uri
       json' =
         json & _Object . at "owner" ?~ Aeson.toJSON owner
           & _Object . at "repo" ?~ Aeson.toJSON repo
           & _Object . at "type" ?~ "github"
-  withSources sources (_Object . at dependencyKey ?~ json')
+  withSources (_Object . at dependencyKey ?~ json')
 
 parseOwnerAndRepo :: URI -> (String, String)
 parseOwnerAndRepo uri = (owner, repo)
@@ -108,14 +136,19 @@ parseOwnerAndRepo uri = (owner, repo)
     owner = takeWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri -- TODO: extract owner and repo
     repo = takeWhile (/= '/') . dropWhile (== '/') . dropWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri
 
-nixPrefetchGit :: URI -> Bool -> IO (Either NdtError Value)
-nixPrefetchGit uri fetchSubmodules = do
+nixPrefetchGitProcess :: URI -> Bool -> IO Value
+nixPrefetchGitProcess uri fetchSubmodules = do
   (ec, stdout) <- Process.readProcessStdout $ Process.proc "nix-prefetch-git" (show uri : ["--fetch-submodules" | fetchSubmodules])
-  return $ case ec of
+  case ec of
     ExitSuccess -> case Aeson.eitherDecode' @Value stdout of
-      Left e -> Left (NixPrefetchGitAesonDecodeError e)
-      Right json -> Right json
-    ExitFailure _ -> Left (NixPrefetchGitFailed ec)
+      Left e -> throwM (NixPrefetchGitAesonDecodeError e)
+      Right json -> return json
+    ExitFailure i -> throwM (NixPrefetchGitFailed i)
+
+nixPrefetchGit :: URI -> Bool -> RIO NdtEnv Value
+nixPrefetchGit uri fetchSubmodules = do
+  action <- view nixPrefetchActionL
+  liftIO $ action uri fetchSubmodules
 
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'
@@ -124,12 +157,13 @@ uriReadM = eitherReader parseAbsoluteURI'
       Nothing -> Left $ "Not an absolute URI: '" <> s <> "'"
       Just u -> Right u
 
-withSources :: FilePath -> (Value -> Value) -> IO ()
-withSources fp f = do
-  decoded <- Aeson.eitherDecodeFileStrict fp
+withSources :: (Value -> Value) -> RIO NdtEnv ()
+withSources f = do
+  sources <- view sourcesFileL
+  decoded <- liftIO $ Aeson.eitherDecodeFileStrict sources
   case decoded of
     Left _ -> undefined -- TODO
     Right deps -> do
       let deps' = f deps
           encoded = encodePretty' (defConfig { confIndent = Spaces 2 }) deps'
-      LBS.writeFile fp encoded
+      liftIO $ LBS.writeFile sources encoded

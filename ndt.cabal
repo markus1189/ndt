@@ -8,26 +8,68 @@ extra-source-files:  CHANGELOG.md
 
 common opts
   ghc-options: -Wall
+               -Wcompat
+               -Widentities
+               -Wincomplete-record-updates
+               -Wincomplete-uni-patterns
+               -Wpartial-fields
+               -Wredundant-constraints
+
 
 common exts
-  default-extensions:  DataKinds
+  default-extensions:  BangPatterns
+                     , BinaryLiterals
+                     , ConstraintKinds
+                     , DataKinds
+                     , DefaultSignatures
+                     , DeriveDataTypeable
+                     , DeriveFoldable
+                     , DeriveFunctor
+                     , DeriveGeneric
+                     , DeriveTraversable
+                     , DoAndIfThenElse
+                     , EmptyDataDecls
+                     , ExistentialQuantification
+                     , FlexibleContexts
+                     , FlexibleInstances
+                     , FunctionalDependencies
+                     , GADTs
                      , GeneralizedNewtypeDeriving
+                     , InstanceSigs
+                     , KindSignatures
+                     , LambdaCase
+                     , MultiParamTypeClasses
+                     , MultiWayIf
+                     , NamedFieldPuns
+                     , NoImplicitPrelude
                      , OverloadedStrings
+                     , PartialTypeSignatures
+                     , PatternGuards
+                     , PolyKinds
+                     , RankNTypes
+                     , RecordWildCards
+                     , ScopedTypeVariables
+                     , StandaloneDeriving
+                     , TupleSections
+                     , TypeFamilies
                      , TypeApplications
-                     , TypeOperators
+                     , TypeSynonymInstances
+                     , ViewPatterns
 
 executable ndt
   import:              opts
                      , exts
   main-is:             Main.hs
   build-depends:       base >=4.13 && <4.14
+                     , rio
+                     , aeson
+                     , aeson-pretty
+                     , bytestring
+                     , directory
+                     , lens-aeson
+                     , network-uri
                      , optparse-applicative
                      , text
-                     , bytestring
-                     , network-uri
                      , typed-process
-                     , aeson
-                     , lens-aeson
-                     , aeson-pretty
-                     , lens
+                     , microlens-platform
   default-language:    Haskell2010
