@@ -94,7 +94,7 @@ executable ndt
                      , ndt
                      , network-uri
                      , optparse-applicative
-                     , rio
+                     , rio >=0.1.16 && < 0.2
                      , text
                      , typed-process
                      , file-embed

@@ -1,17 +1,16 @@
 module Ndt (trackDependency, updateDependency) where
 
-import qualified Network.URI as URI
 import qualified Data.Aeson as Aeson
 import Data.Aeson ((.=), Value)
 import Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
-import Data.Aeson.Lens (_Object, _String, _Bool)
+import Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Lens.Micro.Platform ((?~))
 import Ndt.Fetch
 import Ndt.Types
+import qualified Network.URI as URI
 import Network.URI (URI, parseAbsoluteURI)
 import RIO
 import RIO.Lens
@@ -34,8 +33,7 @@ trackDependency (UrlDependency dk uri storeName) = do
             "sha256" .= T.dropWhileEnd (== '\n') (T.decodeUtf8 (LBS.toStrict sha256))
           ]
             ++ maybe [] (pure . ("name" .=)) storeName
-  sources <- view sourcesFileL
-  withSources (_Object . at dk ?~ json)
+  insertDependency dk json
 
 updateDependency :: Text -> RIO NdtEnv ()
 updateDependency dk = do
@@ -62,9 +60,7 @@ updateDependency dk = do
                 Nothing -> throwM (UnknownDependencyType "<not present>")
 
 insertDependency :: Text -> Value -> RIO NdtEnv ()
-insertDependency dk json = do
-  sources <- view sourcesFileL
-  withSources (_Object . at dk ?~ json)
+insertDependency dk json = withSources (_Object . at dk ?~ json)
 
 withSources :: (Value -> Value) -> RIO NdtEnv ()
 withSources f = do
@@ -80,5 +76,5 @@ withSources f = do
 parseOwnerAndRepo :: URI -> (String, String)
 parseOwnerAndRepo uri = (owner, repo)
   where
-    owner = takeWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri -- TODO: extract owner and repo
+    owner = takeWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri
     repo = takeWhile (/= '/') . dropWhile (== '/') . dropWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri

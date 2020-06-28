@@ -65,9 +65,10 @@ main :: IO ()
 main = do
   (NdtGlobalOpts sourcesFp, options) <- execParser opts
   sourcesFilePresent <- doesFileExist sourcesFp
-  -- TODO: fail if not there or create an empty file?
+  unless sourcesFilePresent $
+    throwM (UnreadableSources sourcesFp "no such file!")
   let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess nixPrefetchUrlProcess
-  runRIO ndtEnv $ dispatch options -- TODO: catch exceptions and exitFailure
+  runRIO ndtEnv $ dispatch options
 
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency d) = trackDependency d
