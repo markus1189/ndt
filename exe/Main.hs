@@ -91,4 +91,6 @@ sourcesNixFile = $(FE.embedFile "static/init-template.nix")
 
 initialize :: RIO NdtEnv ()
 initialize = do
+  sources <- view sourcesFileL
   writeFileBinary "sources.nix" sourcesNixFile
+  writeFileBinary sources "{}"
