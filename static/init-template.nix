@@ -4,6 +4,6 @@
 
 let
   sourcesDrv = pkgs.runCommand "init-sources" { buildInputs = [pkgs.ndt];} "ndt print > $out";
-  sources = import "${sourcesDrv}" { inherit sourcesFile; } ;
+  sources = import "${sourcesDrv}" { inherit pkgs sourcesFile; } ;
 in
   sources
