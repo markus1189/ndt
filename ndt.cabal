@@ -97,4 +97,5 @@ executable ndt
                      , rio
                      , text
                      , typed-process
+                     , file-embed
   default-language:    Haskell2010

@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Main (main) where
 
 import Ndt
@@ -5,10 +6,12 @@ import Ndt.Types
 import Ndt.Fetch
 
 import RIO
+import qualified RIO.ByteString
 import System.Directory (doesFileExist)
 import qualified Data.Text as T
 import Network.URI (URI, parseAbsoluteURI)
 import Options.Applicative
+import qualified Data.FileEmbed as FE
 
 data NdtGlobalOpts
   = NdtGlobalOpts
@@ -18,6 +21,7 @@ data NdtGlobalOpts
 data Command
   = TrackDependency Dependency
   | UpdateDependency Text
+  | PrintNixFile
   deriving (Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
@@ -29,6 +33,7 @@ commandParser =
     <*> ( hsubparser $
             command "track" (info trackOptions (progDesc "Track a new dependency"))
               <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
+            <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
         )
 
 trackOptions :: Parser Command
@@ -65,6 +70,7 @@ main = do
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency d) = trackDependency d
 dispatch (UpdateDependency dk) = updateDependency dk
+dispatch PrintNixFile = RIO.ByteString.putStr sourcesNixFile
 
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'
@@ -72,3 +78,6 @@ uriReadM = eitherReader parseAbsoluteURI'
     parseAbsoluteURI' s = case parseAbsoluteURI s of
       Nothing -> Left $ "Not an absolute URI: '" <> s <> "'"
       Just u -> Right u
+
+sourcesNixFile :: ByteString
+sourcesNixFile = $(FE.embedFile "static/sources-template.nix")
