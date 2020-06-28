@@ -22,6 +22,7 @@ data Command
   = TrackDependency Dependency
   | UpdateDependency Text
   | PrintNixFile
+  | Initialize
   deriving (Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
@@ -32,8 +33,9 @@ commandParser =
         )
     <*> ( hsubparser $
             command "track" (info trackOptions (progDesc "Track a new dependency"))
-              <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
+            <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
             <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
+            <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
         )
 
 trackOptions :: Parser Command
@@ -70,7 +72,8 @@ main = do
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency d) = trackDependency d
 dispatch (UpdateDependency dk) = updateDependency dk
-dispatch PrintNixFile = RIO.ByteString.putStr sourcesNixFile
+dispatch PrintNixFile = RIO.ByteString.putStr sourcesTemplateFile
+dispatch Initialize = initialize
 
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'
@@ -79,5 +82,12 @@ uriReadM = eitherReader parseAbsoluteURI'
       Nothing -> Left $ "Not an absolute URI: '" <> s <> "'"
       Just u -> Right u
 
+sourcesTemplateFile :: ByteString
+sourcesTemplateFile = $(FE.embedFile "static/sources-template.nix")
+
 sourcesNixFile :: ByteString
-sourcesNixFile = $(FE.embedFile "static/sources-template.nix")
+sourcesNixFile = $(FE.embedFile "static/init-template.nix")
+
+initialize :: RIO NdtEnv ()
+initialize = do
+  writeFileBinary "sources.nix" sourcesNixFile
