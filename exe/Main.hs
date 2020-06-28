@@ -5,6 +5,7 @@ import Ndt
 import Ndt.Types
 import Ndt.Fetch
 
+import Data.Coerce (coerce)
 import RIO
 import qualified RIO.ByteString
 import System.Directory (doesFileExist)
@@ -19,11 +20,11 @@ data NdtGlobalOpts
       }
 
 data Command
-  = TrackDependency Dependency
-  | UpdateDependency Text
+  = TrackDependency DependencyKey Dependency
+  | UpdateDependency DependencyKey
   | PrintNixFile
   | Initialize
-  deriving (Show)
+  deriving (Eq, Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
 commandParser =
@@ -40,22 +41,21 @@ commandParser =
 
 trackOptions :: Parser Command
 trackOptions =
-  TrackDependency <$> hsubparser (command "github" (info trackGitHubOptions (progDesc "Track a GitHub repository")) <> command "url" (info trackUrlOptions (progDesc "Track a URL as download")))
+  TrackDependency <$> (coerce . T.pack <$> argument str (metavar "NAME"))
+    <*> hsubparser (command "github" (info trackGitHubOptions (progDesc "Track a GitHub repository")) <> command "url" (info trackUrlOptions (progDesc "Track a URL as download")))
 
 updateOptions :: Parser Command
 updateOptions =
-  UpdateDependency <$> argument str (metavar "DEPENDENCY")
+  UpdateDependency . coerce . T.pack <$> argument str (metavar "DEPENDENCY")
 
 trackGitHubOptions :: Parser Dependency
 trackGitHubOptions =
-  GithubDependency <$> (T.pack <$> argument str (metavar "NAME"))
-    <*> argument uriReadM (metavar "GITHUB_URL")
+  GithubDependency <$> argument uriReadM (metavar "GITHUB_URL")
     <*> flag False True (long "fetch-submodules" <> help "Fetch submodules")
 
 trackUrlOptions :: Parser Dependency
 trackUrlOptions =
-  UrlDependency <$> (T.pack <$> argument str (metavar "NAME"))
-    <*> argument uriReadM (metavar "URL")
+  UrlDependency <$> argument uriReadM (metavar "URL")
     <*> optional (strOption (long "store-name" <> metavar "NIX_STORE_NAME" <> help "Override the name of the file in the nix store"))
 
 opts :: ParserInfo (NdtGlobalOpts, Command)
@@ -65,13 +65,13 @@ main :: IO ()
 main = do
   (NdtGlobalOpts sourcesFp, options) <- execParser opts
   sourcesFilePresent <- doesFileExist sourcesFp
-  unless sourcesFilePresent $
+  when (not sourcesFilePresent && options /= Initialize) $
     throwM (UnreadableSources sourcesFp "no such file!")
   let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess nixPrefetchUrlProcess
   runRIO ndtEnv $ dispatch options
 
 dispatch :: Command -> RIO NdtEnv ()
-dispatch (TrackDependency d) = trackDependency d
+dispatch (TrackDependency dk d) = trackDependency dk d
 dispatch (UpdateDependency dk) = updateDependency dk
 dispatch PrintNixFile = RIO.ByteString.putStr sourcesTemplateFile
 dispatch Initialize = initialize

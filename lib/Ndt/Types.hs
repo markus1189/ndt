@@ -5,14 +5,18 @@ module Ndt.Types
     NdtEnv (NdtEnv),
     NdtException (..),
     Dependency (..),
+    DependencyKey(DependencyKey),
   )
 where
 
+import Data.Coerce (coerce)
 import Data.Aeson (Value)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import Network.URI (URI)
 import RIO
+
+newtype DependencyKey = DependencyKey Text deriving (Show, Eq)
 
 class HasSourcesFile cfg where
   sourcesFileL :: Lens' cfg FilePath
@@ -41,37 +45,34 @@ instance HasNixPrefetchUrlAction NdtEnv where
 
 data NdtException
   = NixPrefetchGitFailed Int
-  | NixPrefetchUrlFailed Int
   | NixPrefetchGitAesonDecodeError String
-  | NoSuchDependency Text
+  | NixPrefetchUrlFailed Int
+  | NoSuchDependency DependencyKey
   | UnreadableSources FilePath String
-  | InvalidGitHubUri
+  | InvalidGitHubUri DependencyKey
   | MissingFieldInSources Text
-  | UnknownDependencyType Text
+  | UnknownDependencyType DependencyKey Text
   deriving (Typeable)
 
 instance Exception NdtException
 
--- TODO: add dependencykeys
 instance Show NdtException where
   show (NixPrefetchGitFailed ec) = "prefetching the git repository failed with exit code: " <> show ec
   show (NixPrefetchGitAesonDecodeError msg) = "could not parse the output of nix-prefetch-git: " <> msg
   show (NixPrefetchUrlFailed ec) = "prefetching the url failed with exit code: " <> show ec
-  show (NoSuchDependency dep) = "could not find dependency: " <> T.unpack dep
+  show (NoSuchDependency dk) = "could not find dependency: " <> T.unpack (coerce dk)
   show (UnreadableSources fp msg) = "could not read " <> fp <> ": " <> msg
-  show InvalidGitHubUri = "invalid/missing github uri"
+  show (InvalidGitHubUri dk) = "invalid/missing github uri for dependency: " <> T.unpack (coerce dk)
   show (MissingFieldInSources key) = "INTERNAL ERROR: could not find field in sources: " <> T.unpack key
-  show (UnknownDependencyType typ) = "Unknown dependency type: " <> T.unpack typ
+  show (UnknownDependencyType dk typ) = "Unknown dependency type: '" <> T.unpack typ <> "' for dependency: " <> T.unpack (coerce dk)
 
 data Dependency
   = GithubDependency
-      { _ghDepDependencyKey :: Text,
-        _ghDepGithubUrl :: URI,
+      { _ghDepGithubUrl :: URI,
         _ghDepFetchSubmodules :: Bool
       }
   | UrlDependency
-      { _urlDepDependencyKey :: Text,
-        _urlDepUri :: URI,
+      { _urlDepUri :: URI,
         _urlDepStoreName :: Maybe String
       }
-  deriving (Show)
+  deriving (Eq, Show)

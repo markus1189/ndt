@@ -1,22 +1,23 @@
 module Ndt (trackDependency, updateDependency) where
 
+import           Data.Aeson ((.=), Value)
 import qualified Data.Aeson as Aeson
-import Data.Aeson ((.=), Value)
-import Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
-import Data.Aeson.Lens (_Bool, _Object, _String)
+import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
+import           Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Coerce (coerce)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Lens.Micro.Platform ((?~))
-import Ndt.Fetch
-import Ndt.Types
+import           Lens.Micro.Platform ((?~))
+import           Ndt.Fetch
+import           Ndt.Types
+import           Network.URI (URI, parseAbsoluteURI)
 import qualified Network.URI as URI
-import Network.URI (URI, parseAbsoluteURI)
-import RIO
-import RIO.Lens
+import           RIO
+import           RIO.Lens
 
-trackDependency :: Dependency -> RIO NdtEnv ()
-trackDependency (GithubDependency dk uri fetchSubmodules) = do
+trackDependency :: DependencyKey -> Dependency -> RIO NdtEnv ()
+trackDependency dk (GithubDependency uri fetchSubmodules) = do
   json <- nixPrefetchGit uri fetchSubmodules
   let (owner, repo) = parseOwnerAndRepo uri
       json' =
@@ -24,7 +25,7 @@ trackDependency (GithubDependency dk uri fetchSubmodules) = do
           & _Object . at "repo" ?~ Aeson.toJSON repo
           & _Object . at "type" ?~ "github"
   insertDependency dk json'
-trackDependency (UrlDependency dk uri storeName) = do
+trackDependency dk (UrlDependency uri storeName) = do
   sha256 <- nixPrefetchUrl uri storeName
   let json =
         Aeson.object $
@@ -35,14 +36,14 @@ trackDependency (UrlDependency dk uri storeName) = do
             ++ maybe [] (pure . ("name" .=)) storeName
   insertDependency dk json
 
-updateDependency :: Text -> RIO NdtEnv ()
+updateDependency :: DependencyKey -> RIO NdtEnv ()
 updateDependency dk = do
   sources <- view sourcesFileL
   decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Value sources
   case decoded of
     Left msg -> throwM (UnreadableSources sources msg)
     Right json -> do
-      let dep = json ^? _Object . ix dk
+      let dep = json ^? _Object . ix (coerce dk)
       case dep of
         Nothing -> throwM (NoSuchDependency dk)
         Just depValue -> do
@@ -51,16 +52,16 @@ updateDependency dk = do
               fetchSubmodules = Just True == depValue ^? _Object . ix "fetchSubmodules" . _Bool
               storeName = depValue ^? _Object . ix "name" . _String . to T.unpack
           case maybeUri of
-            Nothing -> throwM InvalidGitHubUri
+            Nothing -> throwM (InvalidGitHubUri dk)
             Just uri ->
               case typ of
-                Just "github" -> trackDependency (GithubDependency dk uri fetchSubmodules)
-                Just "url" -> trackDependency (UrlDependency dk uri storeName)
-                Just t -> throwM (UnknownDependencyType t)
-                Nothing -> throwM (UnknownDependencyType "<not present>")
+                Just "github" -> trackDependency dk (GithubDependency uri fetchSubmodules)
+                Just "url" -> trackDependency dk (UrlDependency uri storeName)
+                Just t -> throwM (UnknownDependencyType dk t)
+                Nothing -> throwM (UnknownDependencyType dk "<not present>")
 
-insertDependency :: Text -> Value -> RIO NdtEnv ()
-insertDependency dk json = withSources (_Object . at dk ?~ json)
+insertDependency :: DependencyKey -> Value -> RIO NdtEnv ()
+insertDependency dk json = withSources (_Object . at (coerce dk) ?~ json)
 
 withSources :: (Value -> Value) -> RIO NdtEnv ()
 withSources f = do
