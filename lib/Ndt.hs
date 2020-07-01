@@ -1,6 +1,6 @@
-module Ndt (trackDependency, updateDependency) where
+module Ndt (trackDependency, updateAllDependencies, updateDependency) where
 
-import           Data.Aeson ((.=), Value)
+import           Data.Aeson ((.=), Value, Object)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
 import           Data.Aeson.Lens (_Bool, _Object, _String)
@@ -14,6 +14,7 @@ import           Ndt.Types
 import           Network.URI (URI, parseAbsoluteURI)
 import qualified Network.URI as URI
 import           RIO
+import qualified RIO.HashMap as HM
 import           RIO.Lens
 
 trackDependency :: DependencyKey -> Dependency -> RIO NdtEnv ()
@@ -36,6 +37,16 @@ trackDependency dk (UrlDependency uri storeName) = do
           ]
             ++ maybe [] (pure . ("name" .=)) storeName
   insertDependency dk json
+
+updateAllDependencies :: RIO NdtEnv ()
+updateAllDependencies = do
+  sources <- view sourcesFileL
+  decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Object sources
+  case decoded of
+    Left msg -> throwM (UnreadableSources sources msg)
+    Right obj -> do
+      let dks = HM.keys obj
+      for_ dks (updateDependency . coerce)
 
 updateDependency :: DependencyKey -> RIO NdtEnv ()
 updateDependency dk = do

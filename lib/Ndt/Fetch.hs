@@ -12,6 +12,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Ndt.Types
 import Network.URI (URI)
 import RIO
+import RIO.List (stripPrefix)
 import qualified System.Process.Typed as Process
 
 -- TODO: record for nix-prefetch args
@@ -21,7 +22,7 @@ nixPrefetchGitProcess uri fetchSubmodules branchName = do
     Process.readProcessStdout $
       Process.proc
         "nix-prefetch-git"
-        ("--branch-name" : branchName : show uri : ["--fetch-submodules" | fetchSubmodules])
+        ("--rev" : ("refs/heads/" <> fromMaybe branchName (stripPrefix "refs/heads/" branchName)) : show uri : ["--fetch-submodules" | fetchSubmodules])
   case ec of
     ExitSuccess -> case Aeson.eitherDecode' @Value output of
       Left e -> throwM (NixPrefetchGitAesonDecodeError e)
