@@ -14,13 +14,14 @@ import Network.URI (URI)
 import RIO
 import qualified System.Process.Typed as Process
 
-nixPrefetchGitProcess :: URI -> Bool -> IO Value
-nixPrefetchGitProcess uri fetchSubmodules = do
+-- TODO: record for nix-prefetch args
+nixPrefetchGitProcess :: URI -> Bool -> String -> IO Value
+nixPrefetchGitProcess uri fetchSubmodules branchName = do
   (ec, output) <-
     Process.readProcessStdout $
       Process.proc
         "nix-prefetch-git"
-        (show uri : ["--fetch-submodules" | fetchSubmodules])
+        ("--branch-name" : branchName : show uri : ["--fetch-submodules" | fetchSubmodules])
   case ec of
     ExitSuccess -> case Aeson.eitherDecode' @Value output of
       Left e -> throwM (NixPrefetchGitAesonDecodeError e)
@@ -38,10 +39,10 @@ nixPrefetchUrlProcess uri maybeStoreName = do
     ExitSuccess -> return output
     ExitFailure i -> throwM (NixPrefetchUrlFailed i)
 
-nixPrefetchGit :: URI -> Bool -> RIO NdtEnv Value
-nixPrefetchGit uri fetchSubmodules = do
+nixPrefetchGit :: URI -> Bool -> String -> RIO NdtEnv Value
+nixPrefetchGit uri fetchSubmodules branchName = do
   action <- view nixPrefetchGitActionL
-  liftIO $ action uri fetchSubmodules
+  liftIO $ action uri fetchSubmodules branchName
 
 nixPrefetchUrl :: URI -> Maybe String -> RIO NdtEnv LBS.ByteString
 nixPrefetchUrl uri maybeStoreName = do

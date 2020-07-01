@@ -22,7 +22,7 @@ class HasSourcesFile cfg where
   sourcesFileL :: Lens' cfg FilePath
 
 class HasNixPrefetchGitAction cfg where
-  nixPrefetchGitActionL :: Lens' cfg (URI -> Bool -> IO Value)
+  nixPrefetchGitActionL :: Lens' cfg (URI -> Bool -> String -> IO Value)
 
 class HasNixPrefetchUrlAction cfg where
   nixPrefetchUrlActionL :: Lens' cfg (URI -> Maybe String -> IO LBS.ByteString)
@@ -30,7 +30,7 @@ class HasNixPrefetchUrlAction cfg where
 data NdtEnv
   = NdtEnv
       { _ndtEnvSourcesFile :: FilePath,
-        _ndtEnvNixPrefetchGitAction :: URI -> Bool -> IO Value,
+        _ndtEnvNixPrefetchGitAction :: URI -> Bool -> String -> IO Value,
         _ndtEnvNixPrefetchUrlAction :: URI -> Maybe String -> IO LBS.ByteString
       }
 
@@ -69,7 +69,8 @@ instance Show NdtException where
 data Dependency
   = GithubDependency
       { _ghDepGithubUrl :: URI,
-        _ghDepFetchSubmodules :: Bool
+        _ghDepFetchSubmodules :: Bool,
+        _ghDepBranchName :: String
       }
   | UrlDependency
       { _urlDepUri :: URI,

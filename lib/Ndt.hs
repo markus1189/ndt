@@ -17,13 +17,14 @@ import           RIO
 import           RIO.Lens
 
 trackDependency :: DependencyKey -> Dependency -> RIO NdtEnv ()
-trackDependency dk (GithubDependency uri fetchSubmodules) = do
-  json <- nixPrefetchGit uri fetchSubmodules
+trackDependency dk (GithubDependency uri fetchSubmodules branchName) = do
+  json <- nixPrefetchGit uri fetchSubmodules branchName
   let (owner, repo) = parseOwnerAndRepo uri
       json' =
         json & _Object . at "owner" ?~ Aeson.toJSON owner
           & _Object . at "repo" ?~ Aeson.toJSON repo
           & _Object . at "type" ?~ "github"
+          & _Object . at "branch" ?~ Aeson.toJSON branchName
   insertDependency dk json'
 trackDependency dk (UrlDependency uri storeName) = do
   sha256 <- nixPrefetchUrl uri storeName
@@ -50,12 +51,13 @@ updateDependency dk = do
           let typ = depValue ^? _Object . ix "type" . _String
               maybeUri = (depValue ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI
               fetchSubmodules = Just True == depValue ^? _Object . ix "fetchSubmodules" . _Bool
+              branchName = maybe "master" T.unpack $ depValue ^? _Object . ix "branch" . _String
               storeName = depValue ^? _Object . ix "name" . _String . to T.unpack
           case maybeUri of
             Nothing -> throwM (InvalidGitHubUri dk)
             Just uri ->
               case typ of
-                Just "github" -> trackDependency dk (GithubDependency uri fetchSubmodules)
+                Just "github" -> trackDependency dk (GithubDependency uri fetchSubmodules branchName)
                 Just "url" -> trackDependency dk (UrlDependency uri storeName)
                 Just t -> throwM (UnknownDependencyType dk t)
                 Nothing -> throwM (UnknownDependencyType dk "<not present>")

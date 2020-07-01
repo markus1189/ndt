@@ -52,6 +52,7 @@ trackGitHubOptions :: Parser Dependency
 trackGitHubOptions =
   GithubDependency <$> argument uriReadM (metavar "GITHUB_URL")
     <*> flag False True (long "fetch-submodules" <> help "Fetch submodules")
+    <*> strOption (long "branch-name" <> short 'b' <> metavar "BRANCH_NAME" <> value "master" <> showDefault <> help "Branch name to check out into")
 
 trackUrlOptions :: Parser Dependency
 trackUrlOptions =
