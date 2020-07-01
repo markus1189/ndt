@@ -3,7 +3,7 @@
 }:
 
 let
-  sourcesDrv = pkgs.runCommand "init-sources" {} "${pkgs.ndt}/bin/ndt print > $out";
+  sourcesDrv = pkgs.runCommand "init-sources" {} "${pkgs.ndt}/bin/ndt -s ${sourcesFile} print > $out";
   sources = import sourcesDrv { inherit pkgs sourcesFile; } ;
 in
   sources
