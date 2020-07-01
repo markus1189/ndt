@@ -11,10 +11,11 @@ let
 
   # The actual fetching function.
   fetch = pkgs: name: spec:
-    if ! builtins.hasAttr "type" spec then
+    let specWithname = { name = "ndt-fetch-${name}"; } // spec; in
+    if ! builtins.hasAttr "type" specWithname then
       abort "ERROR: ndt spec ${name} does not have a 'type' attribute"
-    else if spec.type == "github" then fetch_github pkgs spec
-    else if spec.type == "url" then fetch_url pkgs spec
+    else if spec.type == "github" then fetch_github pkgs specWithname
+    else if spec.type == "url" then fetch_url pkgs specWithname
     else
       abort "ERROR: ndt spec ${name} has unknown type ${builtins.toJSON spec.type}";
 
