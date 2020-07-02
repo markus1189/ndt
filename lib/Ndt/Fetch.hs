@@ -10,14 +10,12 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson (Value)
 import qualified Data.ByteString.Lazy as LBS
 import Ndt.Types
-import Network.URI (URI)
 import RIO
 import RIO.List (stripPrefix)
 import qualified System.Process.Typed as Process
 
--- TODO: record for nix-prefetch args
-nixPrefetchGitProcess :: URI -> Bool -> String -> IO Value
-nixPrefetchGitProcess uri fetchSubmodules branchName = do
+nixPrefetchGitProcess :: NixPrefetchGitArgs -> IO Value
+nixPrefetchGitProcess (NixPrefetchGitArgs uri fetchSubmodules branchName) = do
   (ec, output) <-
     Process.readProcessStdout $
       Process.proc
@@ -29,8 +27,8 @@ nixPrefetchGitProcess uri fetchSubmodules branchName = do
       Right json -> return json
     ExitFailure i -> throwM (NixPrefetchGitFailed i)
 
-nixPrefetchUrlProcess :: URI -> Maybe String -> IO LBS.ByteString
-nixPrefetchUrlProcess uri maybeStoreName = do
+nixPrefetchUrlProcess :: NixPrefetchUrlArgs -> IO LBS.ByteString
+nixPrefetchUrlProcess (NixPrefetchUrlArgs uri maybeStoreName) = do
   (ec, output) <-
     Process.readProcessStdout $
       Process.proc
@@ -40,12 +38,12 @@ nixPrefetchUrlProcess uri maybeStoreName = do
     ExitSuccess -> return output
     ExitFailure i -> throwM (NixPrefetchUrlFailed i)
 
-nixPrefetchGit :: URI -> Bool -> String -> RIO NdtEnv Value
-nixPrefetchGit uri fetchSubmodules branchName = do
+nixPrefetchGit :: NixPrefetchGitArgs -> RIO NdtEnv Value
+nixPrefetchGit args = do
   action <- view nixPrefetchGitActionL
-  liftIO $ action uri fetchSubmodules branchName
+  liftIO $ action args
 
-nixPrefetchUrl :: URI -> Maybe String -> RIO NdtEnv LBS.ByteString
-nixPrefetchUrl uri maybeStoreName = do
+nixPrefetchUrl :: NixPrefetchUrlArgs -> RIO NdtEnv LBS.ByteString
+nixPrefetchUrl args = do
   action <- view nixPrefetchUrlActionL
-  liftIO $ action uri maybeStoreName
+  liftIO $ action args

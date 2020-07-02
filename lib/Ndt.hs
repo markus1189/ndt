@@ -19,7 +19,7 @@ import           RIO.Lens
 
 trackDependency :: DependencyKey -> Dependency -> RIO NdtEnv ()
 trackDependency dk (GithubDependency uri fetchSubmodules branchName) = do
-  json <- nixPrefetchGit uri fetchSubmodules branchName
+  json <- nixPrefetchGit (NixPrefetchGitArgs uri fetchSubmodules branchName)
   let (owner, repo) = parseOwnerAndRepo uri
       json' =
         json & _Object . at "owner" ?~ Aeson.toJSON owner
@@ -28,7 +28,7 @@ trackDependency dk (GithubDependency uri fetchSubmodules branchName) = do
           & _Object . at "branch" ?~ Aeson.toJSON branchName
   insertDependency dk json'
 trackDependency dk (UrlDependency uri storeName) = do
-  sha256 <- nixPrefetchUrl uri storeName
+  sha256 <- nixPrefetchUrl (NixPrefetchUrlArgs uri storeName)
   let json =
         Aeson.object $
           [ "url" .= show uri,

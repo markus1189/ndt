@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Ndt.Types
   ( HasSourcesFile (..),
     HasNixPrefetchGitAction (..),
@@ -6,6 +7,8 @@ module Ndt.Types
     NdtException (..),
     Dependency (..),
     DependencyKey(DependencyKey),
+    NixPrefetchGitArgs(..),
+    NixPrefetchUrlArgs(..)
   )
 where
 
@@ -18,20 +21,24 @@ import RIO
 
 newtype DependencyKey = DependencyKey Text deriving (Show, Eq)
 
+data NixPrefetchGitArgs = NixPrefetchGitArgs URI Bool String
+
+data NixPrefetchUrlArgs = NixPrefetchUrlArgs URI (Maybe String)
+
 class HasSourcesFile cfg where
   sourcesFileL :: Lens' cfg FilePath
 
 class HasNixPrefetchGitAction cfg where
-  nixPrefetchGitActionL :: Lens' cfg (URI -> Bool -> String -> IO Value)
+  nixPrefetchGitActionL :: Lens' cfg (NixPrefetchGitArgs -> IO Value)
 
 class HasNixPrefetchUrlAction cfg where
-  nixPrefetchUrlActionL :: Lens' cfg (URI -> Maybe String -> IO LBS.ByteString)
+  nixPrefetchUrlActionL :: Lens' cfg (NixPrefetchUrlArgs -> IO LBS.ByteString)
 
 data NdtEnv
   = NdtEnv
       { _ndtEnvSourcesFile :: FilePath,
-        _ndtEnvNixPrefetchGitAction :: URI -> Bool -> String -> IO Value,
-        _ndtEnvNixPrefetchUrlAction :: URI -> Maybe String -> IO LBS.ByteString
+        _ndtEnvNixPrefetchGitAction :: NixPrefetchGitArgs -> IO Value,
+        _ndtEnvNixPrefetchUrlAction :: NixPrefetchUrlArgs -> IO LBS.ByteString
       }
 
 instance HasSourcesFile NdtEnv where
