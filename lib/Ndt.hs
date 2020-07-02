@@ -3,7 +3,7 @@ module Ndt (trackDependency, updateAllDependencies, updateDependency) where
 import           Control.Monad.Catch (throwM, MonadThrow)
 import           Control.Monad.IO.Class (liftIO, MonadIO)
 import           Control.Monad.Reader (MonadReader)
-import           Data.Aeson ((.=), Value, Object)
+import           Data.Aeson (Value, Object)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
 import           Data.Aeson.Lens (_Bool, _Object, _String)
@@ -11,35 +11,14 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import           Lens.Micro.Platform (view, at, ix, to, (^?), (&), (?~))
+import           Lens.Micro.Platform (view, at, ix, to, (^?), (?~))
 import           Ndt.Fetch
 import           Ndt.Types
-import           Network.URI (URI, parseAbsoluteURI)
-import qualified Network.URI as URI
+import           Network.URI (parseAbsoluteURI)
 
 trackDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> Dependency -> m ()
-trackDependency dk (GithubDependency uri fetchSubmodules branchName) = do
-  json <- nixPrefetchGit (NixPrefetchGitArgs uri fetchSubmodules branchName)
-  let (owner, repo) = parseOwnerAndRepo uri
-      json' =
-        json & _Object . at "owner" ?~ Aeson.toJSON owner
-          & _Object . at "repo" ?~ Aeson.toJSON repo
-          & _Object . at "type" ?~ "github"
-          & _Object . at "branch" ?~ Aeson.toJSON branchName
-  insertDependency dk json'
-trackDependency dk (UrlDependency uri storeName) = do
-  sha256 <- nixPrefetchUrl (NixPrefetchUrlArgs uri storeName)
-  let json =
-        Aeson.object $
-          [ "url" .= show uri,
-            "type" .= ("url" :: Text),
-            "sha256" .= T.dropWhileEnd (== '\n') (T.decodeUtf8 (LBS.toStrict sha256))
-          ]
-            ++ maybe [] (pure . ("name" .=)) storeName
-  insertDependency dk json
+trackDependency dk dep = fetchDependency dep >>= insertDependency dk
 
 updateAllDependencies :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => m ()
 updateAllDependencies = do
@@ -89,9 +68,3 @@ withSources f = do
       let deps' = f deps
           encoded = encodePretty' (defConfig {confIndent = Spaces 2}) deps'
       liftIO $ LBS.writeFile sources encoded
-
-parseOwnerAndRepo :: URI -> (String, String)
-parseOwnerAndRepo uri = (owner, repo)
-  where
-    owner = takeWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri
-    repo = takeWhile (/= '/') . dropWhile (== '/') . dropWhile (/= '/') . dropWhile (== '/') . URI.uriPath $ uri

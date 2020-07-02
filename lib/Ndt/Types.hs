@@ -8,7 +8,8 @@ module Ndt.Types
     Dependency (..),
     DependencyKey(DependencyKey),
     NixPrefetchGitArgs(..),
-    NixPrefetchUrlArgs(..)
+    NixPrefetchUrlArgs(..),
+    Sources(..)
   )
 where
 
@@ -21,6 +22,9 @@ import Control.Exception (Exception)
 import Data.Typeable (Typeable)
 import Data.Text (Text)
 import Lens.Micro.Platform (Lens', lens)
+import Data.HashMap.Strict (HashMap)
+
+newtype Sources = Sources (HashMap Text Value)
 
 newtype DependencyKey = DependencyKey Text deriving (Show, Eq)
 
