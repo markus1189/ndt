@@ -1,23 +1,27 @@
 module Ndt (trackDependency, updateAllDependencies, updateDependency) where
 
+import Control.Monad.Reader (MonadReader)
+import           Control.Monad.Catch (throwM, MonadThrow)
+import           Control.Monad.IO.Class (liftIO, MonadIO)
 import           Data.Aeson ((.=), Value, Object)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
 import           Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
+import           Data.Foldable (for_)
+import qualified Data.HashMap.Strict as HM
+import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Lens.Micro.Platform ((?~))
+import           Lens.Micro.Platform (view, at, ix, to, (^?), (&))
 import           Ndt.Fetch
 import           Ndt.Types
 import           Network.URI (URI, parseAbsoluteURI)
 import qualified Network.URI as URI
-import           RIO
-import qualified RIO.HashMap as HM
-import           RIO.Lens
 
-trackDependency :: DependencyKey -> Dependency -> RIO NdtEnv ()
+trackDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> Dependency -> m ()
 trackDependency dk (GithubDependency uri fetchSubmodules branchName) = do
   json <- nixPrefetchGit (NixPrefetchGitArgs uri fetchSubmodules branchName)
   let (owner, repo) = parseOwnerAndRepo uri
@@ -38,7 +42,7 @@ trackDependency dk (UrlDependency uri storeName) = do
             ++ maybe [] (pure . ("name" .=)) storeName
   insertDependency dk json
 
-updateAllDependencies :: RIO NdtEnv ()
+updateAllDependencies :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => m ()
 updateAllDependencies = do
   sources <- view sourcesFileL
   decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Object sources
@@ -48,7 +52,7 @@ updateAllDependencies = do
       let dks = HM.keys obj
       for_ dks (updateDependency . coerce)
 
-updateDependency :: DependencyKey -> RIO NdtEnv ()
+updateDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> m ()
 updateDependency dk = do
   sources <- view sourcesFileL
   decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Value sources
@@ -73,10 +77,10 @@ updateDependency dk = do
                 Just t -> throwM (UnknownDependencyType dk t)
                 Nothing -> throwM (UnknownDependencyType dk "<not present>")
 
-insertDependency :: DependencyKey -> Value -> RIO NdtEnv ()
+insertDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasSourcesFile env) => DependencyKey -> Value -> m ()
 insertDependency dk json = withSources (_Object . at (coerce dk) ?~ json)
 
-withSources :: (Value -> Value) -> RIO NdtEnv ()
+withSources :: (MonadThrow m, MonadIO m, MonadReader env m, HasSourcesFile env) => (Value -> Value) -> m ()
 withSources f = do
   sources <- view sourcesFileL
   decoded <- liftIO $ Aeson.eitherDecodeFileStrict sources

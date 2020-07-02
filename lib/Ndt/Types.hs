@@ -17,7 +17,10 @@ import Data.Aeson (Value)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import Network.URI (URI)
-import RIO
+import Control.Exception (Exception)
+import Data.Typeable (Typeable)
+import Data.Text (Text)
+import Lens.Micro.Platform (Lens', lens)
 
 newtype DependencyKey = DependencyKey Text deriving (Show, Eq)
 

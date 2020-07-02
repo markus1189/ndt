@@ -6,12 +6,17 @@ module Ndt.Fetch
   )
 where
 
+import           Control.Monad.Catch (throwM)
+import           Control.Monad.IO.Class (liftIO, MonadIO)
+import           Control.Monad.Reader (MonadReader)
+import           Data.Aeson (Value)
 import qualified Data.Aeson as Aeson
-import Data.Aeson (Value)
 import qualified Data.ByteString.Lazy as LBS
-import Ndt.Types
-import RIO
-import RIO.List (stripPrefix)
+import           Data.List (stripPrefix)
+import           Data.Maybe (fromMaybe)
+import           Lens.Micro.Platform (view)
+import           Ndt.Types
+import           System.Exit (ExitCode(..))
 import qualified System.Process.Typed as Process
 
 nixPrefetchGitProcess :: NixPrefetchGitArgs -> IO Value
@@ -38,12 +43,12 @@ nixPrefetchUrlProcess (NixPrefetchUrlArgs uri maybeStoreName) = do
     ExitSuccess -> return output
     ExitFailure i -> throwM (NixPrefetchUrlFailed i)
 
-nixPrefetchGit :: NixPrefetchGitArgs -> RIO NdtEnv Value
+nixPrefetchGit :: (MonadIO m, MonadReader env m, HasNixPrefetchGitAction env) => NixPrefetchGitArgs -> m Value
 nixPrefetchGit args = do
   action <- view nixPrefetchGitActionL
   liftIO $ action args
 
-nixPrefetchUrl :: NixPrefetchUrlArgs -> RIO NdtEnv LBS.ByteString
+nixPrefetchUrl :: (MonadIO m, MonadReader env m, HasNixPrefetchUrlAction env) => NixPrefetchUrlArgs -> m LBS.ByteString
 nixPrefetchUrl args = do
   action <- view nixPrefetchUrlActionL
   liftIO $ action args
