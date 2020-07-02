@@ -111,8 +111,17 @@ test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Test.hs
+  other-modules:       Tests.Fetch
   build-depends:       base
                      , ndt
                      , tasty
                      , tasty-hspec
                      , hspec
+                     , aeson
+                     , microlens-platform
+                     , mtl
+                     , network-uri
+                     , lens-aeson
+                     , bytestring
+                     , unordered-containers
+                     , text
