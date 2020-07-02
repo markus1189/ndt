@@ -1,8 +1,8 @@
 module Ndt (trackDependency, updateAllDependencies, updateDependency) where
 
-import Control.Monad.Reader (MonadReader)
 import           Control.Monad.Catch (throwM, MonadThrow)
 import           Control.Monad.IO.Class (liftIO, MonadIO)
+import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson ((.=), Value, Object)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
@@ -14,8 +14,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           Lens.Micro.Platform ((?~))
-import           Lens.Micro.Platform (view, at, ix, to, (^?), (&))
+import           Lens.Micro.Platform (view, at, ix, to, (^?), (&), (?~))
 import           Ndt.Fetch
 import           Ndt.Types
 import           Network.URI (URI, parseAbsoluteURI)
