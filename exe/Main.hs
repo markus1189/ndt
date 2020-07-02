@@ -14,7 +14,7 @@ import Network.URI (URI, parseAbsoluteURI)
 import Options.Applicative
 import qualified Data.FileEmbed as FE
 
-data NdtGlobalOpts
+newtype NdtGlobalOpts
   = NdtGlobalOpts
       { _ndtGlobalSourcesFile :: FilePath
       }
@@ -96,5 +96,7 @@ sourcesNixFile = $(FE.embedFile "static/init-template.nix")
 initialize :: RIO NdtEnv ()
 initialize = do
   sources <- view sourcesFileL
-  writeFileBinary "sources.nix" sourcesNixFile
-  writeFileBinary sources "{}"
+  unless (doesFileExist "sources.nix")
+    writeFileBinary "sources.nix" sourcesNixFile
+  unless (doesFileExist sources)
+    writeFileBinary sources "{}"
