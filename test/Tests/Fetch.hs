@@ -27,8 +27,8 @@ instance HasNixPrefetchUrlAction TestEnv where
 emptyFetchOutput :: TestEnv
 emptyFetchOutput = TestEnv (const (pure (Aeson.object []))) (const (pure ""))
 
-correctFetchOutput :: TestEnv
-correctFetchOutput = TestEnv
+plausibleOutput :: TestEnv
+plausibleOutput = TestEnv
                      (pure . json)
                      (const (pure "0000000000000000000000000000000000000000000000000000"))
   where json (NixPrefetchGitArgs _ fsm _) =
@@ -54,12 +54,12 @@ fetchTests = testSpec "fetch" $ do
     it "remembers the args given" $ do
       let fetchSubmodules = True
           branch = "foo"
-      result <- runReaderT (fetchDependency (GithubDependency ndtUri fetchSubmodules branch)) correctFetchOutput
+      result <- runReaderT (fetchDependency (GithubDependency ndtUri fetchSubmodules branch)) plausibleOutput
       result ^? key "fetchSubmodules" . _Bool `shouldBe` Just fetchSubmodules
       result ^? key "branch" . _String `shouldBe` Just (T.pack branch)
 
     it "keeps all of the original attributes" $ do
-      result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) correctFetchOutput
+      result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) plausibleOutput
       let keys = result ^?! _Object . to HM.keys
       keys `shouldContainAllOf` [ "url"
                                 , "rev"
@@ -72,13 +72,22 @@ fetchTests = testSpec "fetch" $ do
                                 ]
 
     it "adds some custom attributes" $ do
-      result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) correctFetchOutput
+      result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) plausibleOutput
       let keys = result ^?! _Object . to HM.keys
       keys `shouldContainAllOf` [ "owner"
                                 , "repo"
                                 , "type"
                                 , "branch"
                                 ]
+
+  describe "the url fetcher" $ do
+    it "adds some custom attributes" $ do
+      let storeName = Just "my-custom-store-name"
+      result <- runReaderT (fetchDependency (UrlDependency ndtUri storeName)) plausibleOutput
+      let keys = result ^?! _Object . to HM.keys
+      keys `shouldMatchList` ["url", "type", "sha256", "name"]
+      result ^? key "type" . _String `shouldBe` Just "url"
+      result ^? key "name" . _String `shouldBe` T.pack <$> storeName
 
   where ndtUri = fromJust $ parseAbsoluteURI "https://github.com/markus1189/ndt"
 
