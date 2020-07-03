@@ -13,7 +13,7 @@ import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import           Lens.Micro.Platform (view, at, (?~))
 import           Ndt.Fetch
-import           Ndt.Update (parseDependency)
+import           Ndt.Sources (parseDependency)
 import           Ndt.Types
 
 trackDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> Dependency -> m ()

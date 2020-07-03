@@ -1,4 +1,4 @@
-module Ndt.Update (parseDependency) where
+module Ndt.Sources (parseDependency) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
 import           Data.Aeson.Lens (_Bool, _Object, _String)

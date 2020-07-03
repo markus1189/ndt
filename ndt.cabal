@@ -65,7 +65,7 @@ library
   exposed-modules:     Ndt
                      , Ndt.Types
                      , Ndt.Fetch
-                     , Ndt.Update
+                     , Ndt.Sources
   build-depends:       base
                      , aeson
                      , aeson-pretty
