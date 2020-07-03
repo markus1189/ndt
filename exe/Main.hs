@@ -15,6 +15,7 @@ import           Options.Applicative
 import           RIO
 import qualified RIO.ByteString
 import           System.Directory (doesFileExist)
+import           System.FilePath ((-<.>))
 
 data NdtEnv
   = NdtEnv
@@ -23,6 +24,9 @@ data NdtEnv
         _ndtEnvNixPrefetchUrlAction :: NixPrefetchUrlArgs -> IO LBS.ByteString,
         _ndtEnvLogFunc :: LogFunc
       }
+
+instance HasLogFunc NdtEnv where
+  logFuncL = lens _ndtEnvLogFunc (\x y -> x { _ndtEnvLogFunc = y })
 
 instance HasSourcesFile NdtEnv where
   sourcesFileL = lens _ndtEnvSourcesFile (\x y -> x {_ndtEnvSourcesFile = y})
@@ -116,7 +120,10 @@ sourcesNixFile = $(FE.embedFile "static/init-template.nix")
 initialize :: RIO NdtEnv ()
 initialize = do
   sources <- view sourcesFileL
-  unlessM (liftIO $ doesFileExist "sources.nix") $
-    writeFileBinary "sources.nix" sourcesNixFile
-  unlessM (liftIO $ doesFileExist sources) $
+  let sourcesNix = sources -<.> "nix"
+  unlessM (liftIO $ doesFileExist sourcesNix) $ do
+    logInfo $ "Initializing file: " <> display (T.pack sourcesNix)
+    writeFileBinary sourcesNix sourcesNixFile
+  unlessM (liftIO $ doesFileExist sources) $ do
+    logInfo $ "Initializing file: " <> display (T.pack sources)
     writeFileBinary sources "{}"
