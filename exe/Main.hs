@@ -24,7 +24,7 @@ data Command
   | UpdateDependency DependencyKey
   | PrintNixFile
   | Initialize
-  | Refresh
+  | UpdateAll
   deriving (Eq, Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
@@ -33,12 +33,11 @@ commandParser =
     <$> ( NdtGlobalOpts
             <$> strOption (long "sources" <> short 's' <> metavar "SOURCES_FILE" <> value "sources.json" <> showDefault <> help "Read dependencies from SOURCES_FILE")
         )
-    <*> ( hsubparser $
-            command "track" (info trackOptions (progDesc "Track a new dependency"))
-            <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
-            <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
-            <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
-            <> command "refresh" (info (pure Refresh) (progDesc "Refresh all dependencies"))
+    <*> ( hsubparser $ command "track" (info trackOptions (progDesc "Track a new dependency"))
+          <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
+          <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
+          <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
+          <> command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
         )
 
 trackOptions :: Parser Command
@@ -78,7 +77,7 @@ dispatch (TrackDependency dk d) = trackDependency dk d
 dispatch (UpdateDependency dk) = updateDependency dk
 dispatch PrintNixFile = RIO.ByteString.putStr sourcesTemplateFile
 dispatch Initialize = initialize
-dispatch Refresh = updateAllDependencies
+dispatch UpdateAll = updateAllDependencies
 
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'

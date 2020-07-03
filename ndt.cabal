@@ -80,6 +80,8 @@ library
                      , mtl
                      , exceptions
                      , unordered-containers
+                     , unliftio
+                     , unliftio-core
   default-language:    Haskell2010
 
 executable ndt
