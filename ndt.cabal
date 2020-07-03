@@ -112,7 +112,9 @@ test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Test.hs
-  other-modules:       Tests.Fetch
+  other-modules:       Tests.Fixtures
+                     , Tests.Fetch
+                     , Tests.Sources
   build-depends:       base
                      , ndt
                      , tasty

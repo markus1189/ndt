@@ -13,7 +13,7 @@ import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import           Lens.Micro.Platform (view, at, (?~))
 import           Ndt.Fetch
-import           Ndt.Sources (parseDependency)
+import           Ndt.Sources (lookupDependency)
 import           Ndt.Types
 
 trackDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> Dependency -> m ()
@@ -36,7 +36,7 @@ updateDependency dk = do
   case decoded of
     Left msg -> throwM (UnreadableSources sources msg)
     Right json -> do
-      dep <- parseDependency (Sources json) dk
+      dep <- lookupDependency (Sources json) dk
       trackDependency dk dep
 
 insertDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasSourcesFile env) => DependencyKey -> Value -> m ()

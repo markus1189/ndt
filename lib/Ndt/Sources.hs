@@ -1,4 +1,4 @@
-module Ndt.Sources (parseDependency) where
+module Ndt.Sources (lookupDependency) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
 import           Data.Aeson.Lens (_Bool, _Object, _String)
@@ -8,8 +8,8 @@ import           Lens.Micro.Platform (ix, to, (^?))
 import           Ndt.Types
 import           Network.URI (parseAbsoluteURI)
 
-parseDependency :: MonadThrow m => Sources -> DependencyKey -> m Dependency
-parseDependency (Sources json) dk = do
+lookupDependency :: MonadThrow m => Sources -> DependencyKey -> m Dependency
+lookupDependency (Sources json) dk = do
   let dep = json ^? ix (coerce dk)
   case dep of
     Nothing -> throwM (NoSuchDependency dk)

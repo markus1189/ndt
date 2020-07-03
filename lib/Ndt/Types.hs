@@ -9,7 +9,8 @@ module Ndt.Types
     DependencyKey(DependencyKey),
     NixPrefetchGitArgs(..),
     NixPrefetchUrlArgs(..),
-    Sources(..)
+    Sources(..),
+    _Sources
   )
 where
 
@@ -21,10 +22,12 @@ import Network.URI (URI)
 import Control.Exception (Exception)
 import Data.Typeable (Typeable)
 import Data.Text (Text)
-import Lens.Micro.Platform (Lens', lens)
+import Lens.Micro.Platform (Lens', lens, Traversal')
 import Data.HashMap.Strict (HashMap)
 
 newtype Sources = Sources (HashMap Text Value)
+_Sources :: Traversal' Sources (HashMap Text Value)
+_Sources f (Sources hm) = Sources <$> f hm
 
 newtype DependencyKey = DependencyKey Text deriving (Show, Eq)
 
