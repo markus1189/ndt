@@ -6,16 +6,15 @@ import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson (Value, Object)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
-import           Data.Aeson.Lens (_Bool, _Object, _String)
+import           Data.Aeson.Lens (_Object)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
-import           Lens.Micro.Platform (view, at, ix, to, (^?), (?~))
+import           Lens.Micro.Platform (view, at, (?~))
 import           Ndt.Fetch
+import           Ndt.Update (parseDependency)
 import           Ndt.Types
-import           Network.URI (parseAbsoluteURI)
 
 trackDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> Dependency -> m ()
 trackDependency dk dep = fetchDependency dep >>= insertDependency dk
@@ -33,27 +32,12 @@ updateAllDependencies = do
 updateDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> m ()
 updateDependency dk = do
   sources <- view sourcesFileL
-  decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Value sources
+  decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Object sources
   case decoded of
     Left msg -> throwM (UnreadableSources sources msg)
     Right json -> do
-      let dep = json ^? _Object . ix (coerce dk)
-      case dep of
-        Nothing -> throwM (NoSuchDependency dk)
-        Just depValue -> do
-          let typ = depValue ^? _Object . ix "type" . _String
-              maybeUri = (depValue ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI
-              fetchSubmodules = Just True == depValue ^? _Object . ix "fetchSubmodules" . _Bool
-              branchName = maybe "master" T.unpack $ depValue ^? _Object . ix "branch" . _String
-              storeName = depValue ^? _Object . ix "name" . _String . to T.unpack
-          case maybeUri of
-            Nothing -> throwM (InvalidGitHubUri dk)
-            Just uri ->
-              case typ of
-                Just "github" -> trackDependency dk (GithubDependency uri fetchSubmodules branchName)
-                Just "url" -> trackDependency dk (UrlDependency uri storeName)
-                Just t -> throwM (UnknownDependencyType dk t)
-                Nothing -> throwM (UnknownDependencyType dk "<not present>")
+      dep <- parseDependency (Sources json) dk
+      trackDependency dk dep
 
 insertDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasSourcesFile env) => DependencyKey -> Value -> m ()
 insertDependency dk json = withSources (_Object . at (coerce dk) ?~ json)

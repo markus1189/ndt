@@ -45,6 +45,7 @@ plausibleOutput = TestEnv
 
 fetchTests :: IO TestTree
 fetchTests = testSpec "fetch" $ do
+  let ndtUri = fromJust $ parseAbsoluteURI "https://github.com/markus1189/ndt"
   describe "the github fetcher" $ do
     it "adds owner and repo from the uri" $ do
       result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) emptyFetchOutput
@@ -88,8 +89,6 @@ fetchTests = testSpec "fetch" $ do
       keys `shouldMatchList` ["url", "type", "sha256", "name"]
       result ^? key "type" . _String `shouldBe` Just "url"
       result ^? key "name" . _String `shouldBe` T.pack <$> storeName
-
-  where ndtUri = fromJust $ parseAbsoluteURI "https://github.com/markus1189/ndt"
 
 shouldContainAllOf :: (Show a, Eq a) => [a] -> [a] -> Expectation
 shouldContainAllOf actual expected = actual `shouldSatisfy` (\ks -> all (`elem` ks) expected)
