@@ -1,10 +1,11 @@
-module Ndt.Sources (lookupDependency) where
+module Ndt.Sources (lookupDependency, insertDependency) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
+import           Data.Aeson (Value)
 import           Data.Aeson.Lens (_Bool, _Object, _String)
 import           Data.Coerce (coerce)
 import qualified Data.Text as T
-import           Lens.Micro.Platform (ix, to, (^?))
+import           Lens.Micro.Platform (at, ix, to, (^?), (&), (?~))
 import           Ndt.Types
 import           Network.URI (parseAbsoluteURI)
 
@@ -27,3 +28,6 @@ lookupDependency (Sources json) dk = do
             Just "url" ->  pure (UrlDependency uri storeName)
             Just t -> throwM (UnknownDependencyType dk t)
             Nothing -> throwM (UnknownDependencyType dk "<not present>")
+
+insertDependency :: DependencyKey -> Value -> Sources -> Sources
+insertDependency dk value srcs = srcs & _Sources . at (coerce dk) ?~ value
