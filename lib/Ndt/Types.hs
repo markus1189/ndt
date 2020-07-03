@@ -3,7 +3,6 @@ module Ndt.Types
   ( HasSourcesFile (..),
     HasNixPrefetchGitAction (..),
     HasNixPrefetchUrlAction (..),
-    NdtEnv (NdtEnv),
     NdtException (..),
     Dependency (..),
     DependencyKey(DependencyKey),
@@ -22,7 +21,7 @@ import Network.URI (URI)
 import Control.Exception (Exception)
 import Data.Typeable (Typeable)
 import Data.Text (Text)
-import Lens.Micro.Platform (Lens', lens, Traversal')
+import Lens.Micro.Platform (Lens', Traversal')
 import Data.HashMap.Strict (HashMap)
 
 newtype Sources = Sources (HashMap Text Value)
@@ -43,22 +42,6 @@ class HasNixPrefetchGitAction cfg where
 
 class HasNixPrefetchUrlAction cfg where
   nixPrefetchUrlActionL :: Lens' cfg (NixPrefetchUrlArgs -> IO LBS.ByteString)
-
-data NdtEnv
-  = NdtEnv
-      { _ndtEnvSourcesFile :: FilePath,
-        _ndtEnvNixPrefetchGitAction :: NixPrefetchGitArgs -> IO Value,
-        _ndtEnvNixPrefetchUrlAction :: NixPrefetchUrlArgs -> IO LBS.ByteString
-      }
-
-instance HasSourcesFile NdtEnv where
-  sourcesFileL = lens _ndtEnvSourcesFile (\x y -> x {_ndtEnvSourcesFile = y})
-
-instance HasNixPrefetchGitAction NdtEnv where
-  nixPrefetchGitActionL = lens _ndtEnvNixPrefetchGitAction (\x y -> x {_ndtEnvNixPrefetchGitAction = y})
-
-instance HasNixPrefetchUrlAction NdtEnv where
-  nixPrefetchUrlActionL = lens _ndtEnvNixPrefetchUrlAction (\x y -> x {_ndtEnvNixPrefetchUrlAction = y})
 
 data NdtException
   = NixPrefetchGitFailed Int

@@ -1,18 +1,37 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main (main) where
 
-import Ndt
-import Ndt.Types
-import Ndt.Fetch
+import           Ndt
+import           Ndt.Types
+import           Ndt.Fetch
 
-import Data.Coerce (coerce)
-import RIO
-import qualified RIO.ByteString
-import System.Directory (doesFileExist)
-import qualified Data.Text as T
-import Network.URI (URI, parseAbsoluteURI)
-import Options.Applicative
+import           Data.Aeson (Value)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Coerce (coerce)
 import qualified Data.FileEmbed as FE
+import qualified Data.Text as T
+import           Network.URI (URI, parseAbsoluteURI)
+import           Options.Applicative
+import           RIO
+import qualified RIO.ByteString
+import           System.Directory (doesFileExist)
+
+data NdtEnv
+  = NdtEnv
+      { _ndtEnvSourcesFile :: FilePath,
+        _ndtEnvNixPrefetchGitAction :: NixPrefetchGitArgs -> IO Value,
+        _ndtEnvNixPrefetchUrlAction :: NixPrefetchUrlArgs -> IO LBS.ByteString,
+        _ndtEnvLogFunc :: LogFunc
+      }
+
+instance HasSourcesFile NdtEnv where
+  sourcesFileL = lens _ndtEnvSourcesFile (\x y -> x {_ndtEnvSourcesFile = y})
+
+instance HasNixPrefetchGitAction NdtEnv where
+  nixPrefetchGitActionL = lens _ndtEnvNixPrefetchGitAction (\x y -> x {_ndtEnvNixPrefetchGitAction = y})
+
+instance HasNixPrefetchUrlAction NdtEnv where
+  nixPrefetchUrlActionL = lens _ndtEnvNixPrefetchUrlAction (\x y -> x {_ndtEnvNixPrefetchUrlAction = y})
 
 newtype NdtGlobalOpts
   = NdtGlobalOpts
@@ -69,8 +88,10 @@ main = do
   sourcesFilePresent <- doesFileExist sourcesFp
   when (not sourcesFilePresent && options /= Initialize) $
     throwM (UnreadableSources sourcesFp "no such file!")
-  let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess nixPrefetchUrlProcess
-  runRIO ndtEnv $ dispatch options
+  logOptions <- logOptionsHandle stderr False
+  withLogFunc logOptions $ \lf -> do
+    let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess nixPrefetchUrlProcess lf
+    runRIO ndtEnv $ dispatch options
 
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency dk d) = trackDependency dk d
