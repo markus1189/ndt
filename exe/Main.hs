@@ -4,12 +4,14 @@ module Main (main) where
 import           Ndt
 import           Ndt.Types
 import           Ndt.Fetch
+import           Ndt.Sources (listDependencies)
 
 import           Data.Aeson (Value)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.FileEmbed as FE
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import           Network.URI (URI, parseAbsoluteURI)
 import           Options.Applicative
 import           RIO
@@ -49,6 +51,7 @@ data Command
   | PrintNixFile
   | Initialize
   | UpdateAll
+  | ListDependencies
   deriving (Eq, Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
@@ -63,6 +66,7 @@ commandParser =
           <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
           <> command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
           <> command "del" (info deleteOptions (progDesc "Delete a dependency from the sources"))
+          <> command "ls" (info (pure ListDependencies) (progDesc "List all known dependencies"))
         )
 
 deleteOptions :: Parser Command
@@ -70,7 +74,7 @@ deleteOptions = DeleteDependency <$> argument dkM (metavar "DEPENDENCY")
 
 trackOptions :: Parser Command
 trackOptions =
-  TrackDependency <$> (argument dkM (metavar "NAME"))
+  TrackDependency <$> argument dkM (metavar "NAME")
     <*> hsubparser (command "github" (info trackGitHubOptions (progDesc "Track a GitHub repository")) <> command "url" (info trackUrlOptions (progDesc "Track a URL as download")))
 
 updateOptions :: Parser Command
@@ -104,10 +108,17 @@ main = do
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency dk d) = trackDependency dk d
 dispatch (UpdateDependency dk) = updateDependency dk
-dispatch (DeleteDependency dk) =  deleteDependency dk
+dispatch (DeleteDependency dk) = do
+  logInfo $ "Deleting: '" <> display (coerce dk :: Text) <> "'"
+  deleteDependency dk
 dispatch PrintNixFile = RIO.ByteString.putStr sourcesTemplateFile
 dispatch Initialize = initialize
 dispatch UpdateAll = updateAllDependencies
+dispatch ListDependencies = do
+  dks <- listDependencies
+  if null dks
+    then logInfo "You don't have any dependencies yet!"
+    else for_ dks (liftIO . TIO.putStrLn . coerce)
 
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'

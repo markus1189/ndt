@@ -60,7 +60,9 @@ sourcesTests = testSpec "sources" $ do
 
     it "removes a dependency" $ do
       let dk = ("foo" :: Text)
+
           srcs = Sources $ HM.empty & at dk ?~ Fixtures.ndtSource
-          result = removeDependency (coerce dk) srcs
       srcs ^? _Sources . ix dk `shouldBe` Just Fixtures.ndtSource
+
+      let result = removeDependency (coerce dk) srcs
       result ^? _Sources . ix dk `shouldBe` Nothing

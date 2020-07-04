@@ -4,6 +4,7 @@ module Ndt.Sources ( lookupDependency
                    , saveSources
                    , withSources
                    , removeDependency
+                   , listDependencies
                    ) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
@@ -15,6 +16,7 @@ import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConf
 import           Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import           Lens.Micro.Platform (at, ix, to, (^?), (&), (?~), (.~), view)
 import           Ndt.Types
@@ -62,3 +64,6 @@ withSources f = loadSources >>= saveSources . f
 
 removeDependency :: DependencyKey -> Sources -> Sources
 removeDependency dk srcs = srcs & _Sources . at (coerce dk) .~ Nothing
+
+listDependencies :: (MonadIO m, MonadThrow m, MonadReader env m, HasSourcesFile env) => m [DependencyKey]
+listDependencies = (\(Sources hm) -> coerce (HM.keys hm)) <$> loadSources
