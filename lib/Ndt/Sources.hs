@@ -1,4 +1,10 @@
-module Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources) where
+module Ndt.Sources ( lookupDependency
+                   , insertDependency
+                   , loadSources
+                   , saveSources
+                   , withSources
+                   , removeDependency
+                   ) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -10,12 +16,12 @@ import           Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.Text as T
-import           Lens.Micro.Platform (at, ix, to, (^?), (&), (?~), view)
+import           Lens.Micro.Platform (at, ix, to, (^?), (&), (?~), (.~), view)
 import           Ndt.Types
 import           Network.URI (parseAbsoluteURI)
 
-lookupDependency :: MonadThrow m => Sources -> DependencyKey -> m Dependency
-lookupDependency (Sources json) dk = do
+lookupDependency :: MonadThrow m => DependencyKey -> Sources -> m Dependency
+lookupDependency dk (Sources json) = do
   let dep = json ^? ix (coerce dk)
   case dep of
     Nothing -> throwM (NoSuchDependency dk)
@@ -43,10 +49,16 @@ loadSources = do
   decoded <- liftIO $ Aeson.eitherDecodeFileStrict sources
   case decoded of
     Left msg -> throwM (UnreadableSources sources msg)
-    Right deps -> pure $ Sources deps
+    Right srcs -> pure srcs
 
 saveSources :: (MonadReader env m, HasSourcesFile env, MonadIO m) => Sources -> m ()
 saveSources (Sources sources) = do
   file <- view sourcesFileL
   let encoded = encodePretty' (defConfig {confIndent = Spaces 2}) sources
   liftIO $ LBS.writeFile file encoded
+
+withSources :: (MonadThrow m, MonadReader env m, HasSourcesFile env, MonadIO m) => (Sources -> Sources) -> m ()
+withSources f = loadSources >>= saveSources . f
+
+removeDependency :: DependencyKey -> Sources -> Sources
+removeDependency dk srcs = srcs & _Sources . at (coerce dk) .~ Nothing

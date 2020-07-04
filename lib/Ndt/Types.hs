@@ -14,7 +14,7 @@ module Ndt.Types
 where
 
 import Data.Coerce (coerce)
-import Data.Aeson (Value)
+import Data.Aeson (Value, FromJSON, ToJSON)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
 import Network.URI (URI)
@@ -24,7 +24,7 @@ import Data.Text (Text)
 import Lens.Micro.Platform (Lens', Traversal')
 import Data.HashMap.Strict (HashMap)
 
-newtype Sources = Sources (HashMap Text Value)
+newtype Sources = Sources (HashMap Text Value) deriving (FromJSON, ToJSON, Show, Eq)
 _Sources :: Traversal' Sources (HashMap Text Value)
 _Sources f (Sources hm) = Sources <$> f hm
 

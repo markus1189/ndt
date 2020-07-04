@@ -1,41 +1,66 @@
-module Ndt (trackDependency, updateAllDependencies, updateDependency) where
+module Ndt (trackDependency, updateAllDependencies, updateDependency, deleteDependency) where
 
-import           Control.Monad.Catch (throwM, MonadThrow)
-import           Control.Monad.IO.Class (liftIO, MonadIO)
+import           Control.Monad.Catch (MonadThrow)
+import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Control.Monad.Reader (MonadReader)
-import           Data.Aeson (Value, Object)
-import qualified Data.Aeson as Aeson
+import           Data.Aeson (Value)
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
-import           Lens.Micro.Platform (view, (<&>))
+import           Lens.Micro.Platform ((<&>))
 import           Ndt.Fetch
-import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources)
+import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency)
 import           Ndt.Types
 import           UnliftIO.Async (forConcurrently_)
 
-trackDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> Dependency -> m ()
+trackDependency :: ( MonadThrow m
+                   , MonadIO m
+                   , MonadReader env m
+                   , HasNixPrefetchGitAction env
+                   , HasNixPrefetchUrlAction env
+                   , HasSourcesFile env
+                   )
+                => DependencyKey
+                -> Dependency
+                -> m ()
 trackDependency dk dep = fetchDependency dep >>= insert dk
 
-updateAllDependencies :: (MonadUnliftIO m, MonadThrow m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => m ()
+updateAllDependencies :: ( MonadUnliftIO m
+                         , MonadThrow m
+                         , MonadReader env m
+                         , HasNixPrefetchGitAction env
+                         , HasNixPrefetchUrlAction env
+                         , HasSourcesFile env
+                         )
+                      => m ()
 updateAllDependencies = do
-  sources <- view sourcesFileL
-  decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Object sources
-  case decoded of
-    Left msg -> throwM (UnreadableSources sources msg)
-    Right obj -> do
-      let dks = HM.keys obj
-      forConcurrently_ dks (updateDependency . coerce)
+  Sources obj <- loadSources
+  forConcurrently_ (HM.keys obj) (updateDependency . coerce)
 
-updateDependency :: (MonadThrow m, MonadIO m, MonadReader env m, HasNixPrefetchGitAction env, HasNixPrefetchUrlAction env, HasSourcesFile env) => DependencyKey -> m ()
-updateDependency dk = do
-  sources <- view sourcesFileL
-  decoded <- liftIO $ Aeson.eitherDecodeFileStrict @Object sources
-  case decoded of
-    Left msg -> throwM (UnreadableSources sources msg)
-    Right json -> do
-      dep <- lookupDependency (Sources json) dk
-      trackDependency dk dep
+updateDependency :: ( MonadThrow m
+                    , MonadIO m
+                    , MonadReader env m
+                    , HasNixPrefetchGitAction env
+                    , HasNixPrefetchUrlAction env
+                    , HasSourcesFile env)
+                 => DependencyKey
+                 -> m ()
+updateDependency dk = loadSources >>= lookupDependency dk >>= trackDependency dk
 
-insert :: (MonadThrow m, MonadIO m, MonadReader env m, HasSourcesFile env) => DependencyKey -> Value -> m ()
+deleteDependency :: ( MonadThrow m
+                    , MonadReader env m
+                    , HasSourcesFile env
+                    , MonadIO m)
+                 => DependencyKey
+                 -> m ()
+deleteDependency dk = withSources (removeDependency dk)
+
+insert :: ( MonadThrow m
+          , MonadIO m,
+            MonadReader env m
+          , HasSourcesFile env
+          )
+       => DependencyKey
+       -> Value
+       -> m ()
 insert dk v = loadSources <&> insertDependency dk v >>= saveSources

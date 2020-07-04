@@ -45,6 +45,7 @@ newtype NdtGlobalOpts
 data Command
   = TrackDependency DependencyKey Dependency
   | UpdateDependency DependencyKey
+  | DeleteDependency DependencyKey
   | PrintNixFile
   | Initialize
   | UpdateAll
@@ -61,16 +62,19 @@ commandParser =
           <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
           <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
           <> command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
+          <> command "del" (info deleteOptions (progDesc "Delete a dependency from the sources"))
         )
+
+deleteOptions :: Parser Command
+deleteOptions = DeleteDependency <$> argument dkM (metavar "DEPENDENCY")
 
 trackOptions :: Parser Command
 trackOptions =
-  TrackDependency <$> (coerce . T.pack <$> argument str (metavar "NAME"))
+  TrackDependency <$> (argument dkM (metavar "NAME"))
     <*> hsubparser (command "github" (info trackGitHubOptions (progDesc "Track a GitHub repository")) <> command "url" (info trackUrlOptions (progDesc "Track a URL as download")))
 
 updateOptions :: Parser Command
-updateOptions =
-  UpdateDependency . coerce . T.pack <$> argument str (metavar "DEPENDENCY")
+updateOptions = UpdateDependency <$> argument dkM (metavar "DEPENDENCY")
 
 trackGitHubOptions :: Parser Dependency
 trackGitHubOptions =
@@ -100,6 +104,7 @@ main = do
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency dk d) = trackDependency dk d
 dispatch (UpdateDependency dk) = updateDependency dk
+dispatch (DeleteDependency dk) =  deleteDependency dk
 dispatch PrintNixFile = RIO.ByteString.putStr sourcesTemplateFile
 dispatch Initialize = initialize
 dispatch UpdateAll = updateAllDependencies
@@ -110,6 +115,9 @@ uriReadM = eitherReader parseAbsoluteURI'
     parseAbsoluteURI' s = case parseAbsoluteURI s of
       Nothing -> Left $ "Not an absolute URI: '" <> s <> "'"
       Just u -> Right u
+
+dkM :: ReadM DependencyKey
+dkM = maybeReader (Just . coerce . T.pack)
 
 sourcesTemplateFile :: ByteString
 sourcesTemplateFile = $(FE.embedFile "static/sources-template.nix")
