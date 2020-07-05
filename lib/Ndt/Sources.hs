@@ -5,6 +5,7 @@ module Ndt.Sources ( lookupDependency
                    , withSources
                    , removeDependency
                    , listDependencies
+                   , renderDependency
                    ) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
@@ -17,7 +18,9 @@ import           Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
+import           Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Lens.Micro.Platform (at, ix, to, (^?), (&), (?~), (.~), view)
 import           Ndt.Types
 import           Network.URI (parseAbsoluteURI)
@@ -56,7 +59,7 @@ loadSources = do
 saveSources :: (MonadReader env m, HasSourcesFile env, MonadIO m) => Sources -> m ()
 saveSources (Sources sources) = do
   file <- view sourcesFileL
-  let encoded = encodePretty' (defConfig {confIndent = Spaces 2}) sources
+  let encoded = encodePretty' prettyConfig sources
   liftIO $ LBS.writeFile file encoded
 
 withSources :: (MonadThrow m, MonadReader env m, HasSourcesFile env, MonadIO m) => (Sources -> Sources) -> m ()
@@ -67,3 +70,11 @@ removeDependency dk srcs = srcs & _Sources . at (coerce dk) .~ Nothing
 
 listDependencies :: (MonadIO m, MonadThrow m, MonadReader env m, HasSourcesFile env) => m [DependencyKey]
 listDependencies = (\(Sources hm) -> coerce (HM.keys hm)) <$> loadSources
+
+renderDependency :: DependencyKey -> Sources -> Maybe Text
+renderDependency dk srcs = encode <$> maybeDep
+  where encode = T.decodeUtf8 . LBS.toStrict . encodePretty' prettyConfig
+        maybeDep = srcs ^? _Sources . ix (coerce dk)
+
+prettyConfig :: Config
+prettyConfig = defConfig {confIndent = Spaces 2}

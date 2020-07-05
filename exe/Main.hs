@@ -52,6 +52,7 @@ data Command
   | Initialize
   | UpdateAll
   | ListDependencies
+  | ShowDependency DependencyKey
   deriving (Eq, Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
@@ -62,6 +63,7 @@ commandParser =
         )
     <*> ( hsubparser $ command "track" (info trackOptions (progDesc "Track a new dependency"))
           <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
+          <> command "show" (info showOptions (progDesc "Show a tracked dependency"))
           <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
           <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
           <> command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
@@ -79,6 +81,9 @@ trackOptions =
 
 updateOptions :: Parser Command
 updateOptions = UpdateDependency <$> argument dkM (metavar "DEPENDENCY")
+
+showOptions :: Parser Command
+showOptions = ShowDependency <$> argument dkM (metavar "DEPENDENCY")
 
 trackGitHubOptions :: Parser Dependency
 trackGitHubOptions =
@@ -119,7 +124,11 @@ dispatch ListDependencies = do
   if null dks
     then logInfo "You don't have any dependencies yet!"
     else for_ dks (liftIO . TIO.putStrLn . coerce)
-
+dispatch (ShowDependency dk) = do
+  maybeResult <- showDependency dk
+  case maybeResult of
+    Nothing -> logInfo "No dependency found for this key"
+    Just result -> liftIO (TIO.putStrLn result)
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'
   where

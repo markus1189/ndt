@@ -1,4 +1,9 @@
-module Ndt (trackDependency, updateAllDependencies, updateDependency, deleteDependency) where
+module Ndt ( trackDependency
+           , updateAllDependencies
+           , updateDependency
+           , deleteDependency
+           , showDependency
+           ) where
 
 import           Control.Monad.Catch (MonadThrow)
 import           Control.Monad.IO.Class (MonadIO)
@@ -7,9 +12,10 @@ import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson (Value)
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
+import           Data.Text (Text)
 import           Lens.Micro.Platform ((<&>))
 import           Ndt.Fetch
-import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency)
+import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency, renderDependency)
 import           Ndt.Types
 import           UnliftIO.Async (forConcurrently_)
 
@@ -64,3 +70,12 @@ insert :: ( MonadThrow m
        -> Value
        -> m ()
 insert dk v = loadSources <&> insertDependency dk v >>= saveSources
+
+showDependency :: ( MonadIO m
+                  , MonadThrow m
+                  , MonadReader env m
+                  , HasSourcesFile env
+                  )
+               => DependencyKey
+               -> m (Maybe Text)
+showDependency dk = renderDependency dk <$> loadSources
