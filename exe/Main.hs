@@ -58,17 +58,24 @@ data Command
 commandParser :: Parser (NdtGlobalOpts, Command)
 commandParser =
   (,)
-    <$> ( NdtGlobalOpts
-            <$> strOption (long "sources" <> short 's' <> metavar "SOURCES_FILE" <> value "sources.json" <> showDefault <> help "Read dependencies from SOURCES_FILE")
+    <$> ( NdtGlobalOpts <$> strOption (mconcat [ long "sources"
+                                               , short 's'
+                                               , metavar "SOURCES_FILE"
+                                               , value "sources.json"
+                                               , showDefault
+                                               , help "Read dependencies from SOURCES_FILE"
+                                               , action "file"
+                                               ])
         )
-    <*> ( hsubparser $ command "track" (info trackOptions (progDesc "Track a new dependency"))
-          <> command "update" (info updateOptions (progDesc "Update a tracked dependency"))
-          <> command "show" (info showOptions (progDesc "Show a tracked dependency"))
-          <> command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
-          <> command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
-          <> command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
-          <> command "del" (info deleteOptions (progDesc "Delete a dependency from the sources"))
-          <> command "ls" (info (pure ListDependencies) (progDesc "List all known dependencies"))
+    <*> ( hsubparser . mconcat $ [ command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
+                                 , command "track" (info trackOptions (progDesc "Track a new dependency"))
+                                 , command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
+                                 , command "list" (info (pure ListDependencies) (progDesc "List all known dependencies"))
+                                 , command "update" (info updateOptions (progDesc "Update a tracked dependency"))
+                                 , command "show" (info showOptions (progDesc "Show a tracked dependency"))
+                                 , command "delete" (info deleteOptions (progDesc "Delete a dependency from the sources"))
+                                 , command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
+                                 ]
         )
 
 deleteOptions :: Parser Command
