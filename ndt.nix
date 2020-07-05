@@ -12,6 +12,7 @@ let
       } {};
     };
   };
-  ndtDrv = haskellPackages.callCabal2nix "ndt" ./. {};
+  ndtSrc = builtins.filterSource (path: type: !(nixpkgs.lib.hasSuffix ".nix" (baseNameOf path))) ./.;
+  ndtDrv = haskellPackages.callCabal2nix "ndt" ndtSrc {};
 in
   ndtDrv
