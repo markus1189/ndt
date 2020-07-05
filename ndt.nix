@@ -13,7 +13,7 @@ let
     };
   };
   excludedFiles = ["ndt.nix" "default.nix" "shell.nix"];
-  ndtSrc = builtins.filterSource (path: type: builtins.elem (baseNameOf path) excludedFiles ) ./.;
+  ndtSrc = builtins.filterSource (path: type: !(builtins.elem (baseNameOf path) excludedFiles) ) ./.;
   ndtDrv = haskellPackages.callCabal2nix "ndt" ndtSrc {};
 in
   ndtDrv
