@@ -3,6 +3,7 @@ module Ndt ( trackDependency
            , updateDependency
            , deleteDependency
            , showDependency
+           , Ndt.renameDependency
            ) where
 
 import           Control.Monad.Catch (MonadThrow)
@@ -15,7 +16,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import           Lens.Micro.Platform ((<&>))
 import           Ndt.Fetch
-import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency, renderDependency)
+import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency, renderDependency, renameDependency)
 import           Ndt.Types
 import           UnliftIO.Async (forConcurrently_)
 
@@ -79,3 +80,14 @@ showDependency :: ( MonadIO m
                => DependencyKey
                -> m (Maybe Text)
 showDependency dk = renderDependency dk <$> loadSources
+
+
+renameDependency :: ( MonadThrow m
+                    , MonadReader env m
+                    , HasSourcesFile env
+                    , MonadIO m
+                    )
+                 => DependencyKey
+                 -> DependencyKey
+                 -> m ()
+renameDependency old new = withSources (Ndt.Sources.renameDependency old new)

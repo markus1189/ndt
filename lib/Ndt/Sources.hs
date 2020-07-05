@@ -6,6 +6,7 @@ module Ndt.Sources ( lookupDependency
                    , removeDependency
                    , listDependencies
                    , renderDependency
+                   , renameDependency
                    ) where
 
 import           Control.Monad.Catch (throwM, MonadThrow)
@@ -78,3 +79,8 @@ renderDependency dk srcs = encode <$> maybeDep
 
 prettyConfig :: Config
 prettyConfig = defConfig {confIndent = Spaces 2}
+
+renameDependency :: DependencyKey -> DependencyKey -> Sources -> Sources
+renameDependency dkOld dkNew srcs = srcs & _Sources . at (coerce dkNew) .~ oldDep
+                                         & _Sources . at (coerce dkOld) .~ Nothing
+  where oldDep = srcs ^? _Sources . ix (coerce dkOld)

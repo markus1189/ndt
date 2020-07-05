@@ -53,6 +53,7 @@ data Command
   | UpdateAll
   | ListDependencies
   | ShowDependency DependencyKey
+  | RenameDependency DependencyKey DependencyKey
   deriving (Eq, Show)
 
 commandParser :: Parser (NdtGlobalOpts, Command)
@@ -73,10 +74,14 @@ commandParser =
                                  , command "list" (info (pure ListDependencies) (progDesc "List all known dependencies"))
                                  , command "update" (info updateOptions (progDesc "Update a tracked dependency"))
                                  , command "show" (info showOptions (progDesc "Show a tracked dependency"))
+                                 , command "rename" (info renameOptions (progDesc "Rename a tracked dependency"))
                                  , command "delete" (info deleteOptions (progDesc "Delete a dependency from the sources"))
                                  , command "print" (info (pure PrintNixFile) (progDesc "Print a nix file to import sources"))
                                  ]
         )
+
+renameOptions :: Parser Command
+renameOptions = RenameDependency <$> argument dkM (metavar "OLD_DEPENDENCY") <*> argument dkM (metavar "NEW_DEPENDENCY")
 
 deleteOptions :: Parser Command
 deleteOptions = DeleteDependency <$> argument dkM (metavar "DEPENDENCY")
@@ -136,6 +141,8 @@ dispatch (ShowDependency dk) = do
   case maybeResult of
     Nothing -> logInfo "No dependency found for this key"
     Just result -> liftIO (TIO.putStrLn result)
+dispatch (RenameDependency old new) = renameDependency old new
+
 uriReadM :: ReadM URI
 uriReadM = eitherReader parseAbsoluteURI'
   where

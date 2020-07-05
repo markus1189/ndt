@@ -8,7 +8,7 @@ import           Data.Maybe (fromJust)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Lens.Micro.Platform (at, ix, (&), (.~), (?~), (^?))
-import           Ndt.Sources (lookupDependency, insertDependency, removeDependency)
+import           Ndt.Sources (lookupDependency, insertDependency, removeDependency, renameDependency)
 import           Ndt.Types (DependencyKey(..), Dependency(..), _Sources, Sources(..))
 import           Network.URI (parseAbsoluteURI)
 import           Test.Tasty
@@ -66,3 +66,22 @@ sourcesTests = testSpec "sources" $ do
 
       let result = removeDependency (coerce dk) srcs
       result ^? _Sources . ix dk `shouldBe` Nothing
+
+  describe "renameDependency" $ do
+    it "deletes the old dependency and adds the new one" $ do
+      let dk = ("foo" :: Text)
+          newDk = ("bar" :: Text)
+          dep = Aeson.object []
+          srcs = Sources $ HM.empty & at dk ?~ dep
+          result = renameDependency (coerce dk) (coerce newDk) srcs
+      result ^? _Sources . ix dk `shouldBe` Nothing
+      result ^? _Sources . ix newDk `shouldBe` Just dep
+
+    it "overwrites existing dependencies" $ do
+      let dk = ("foo" :: Text)
+          newDk = ("bar" :: Text)
+          depToMove = Aeson.toJSON ("dep-dk" :: Text)
+          existingDep = Aeson.toJSON ("dep-new-dk" :: Text)
+          srcs = Sources $ HM.empty & at dk ?~ depToMove & at newDk ?~ existingDep
+          result = renameDependency (coerce dk) (coerce newDk) srcs
+      result ^? _Sources . ix newDk `shouldBe` Just depToMove
