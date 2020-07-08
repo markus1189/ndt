@@ -12,7 +12,12 @@ let
     buildInputs = old.buildInputs ++ [
       nixpkgs.nix-prefetch-git
     ];
-    nativeBuildInputs = old.nativeBuildInputs ++ [ nixpkgs.installShellFiles ];
+
+    nativeBuildInputs = old.nativeBuildInputs ++ [
+      nixpkgs.installShellFiles
+      nixpkgs.makeWrapper
+    ];
+
     postInstall = ''
       $out/bin/ndt --bash-completion-script $out/bin/ndt > ndt.bash
       installShellCompletion --bash --name ndt.bash ndt.bash
@@ -22,6 +27,10 @@ let
 
       $out/bin/ndt --fish-completion-script $out/bin/ndt > ndt.fish
       installShellCompletion --fish --name ndt.fish ndt.fish
+
+      wrapProgram $out/bin/ndt --prefix PATH : ${nixpkgs.lib.makeBinPath [
+        nixpkgs.nix-prefetch-git
+      ]}
     '';
   });
   finalDrv = drvWithInputs;
