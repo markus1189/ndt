@@ -19,6 +19,7 @@ import           Data.Aeson.Lens (_Bool, _Object, _String)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
+import           Data.List (sortOn)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -70,7 +71,7 @@ removeDependency :: DependencyKey -> Sources -> Sources
 removeDependency dk srcs = srcs & _Sources . at (coerce dk) .~ Nothing
 
 listDependencies :: (MonadIO m, MonadThrow m, MonadReader env m, HasSourcesFile env) => m [DependencyKey]
-listDependencies = (\(Sources hm) -> coerce (HM.keys hm)) <$> loadSources
+listDependencies = sortOn (coerce @DependencyKey @Text) . (\(Sources hm) -> coerce (HM.keys hm)) <$> loadSources
 
 renderDependency :: DependencyKey -> Sources -> Maybe Text
 renderDependency dk srcs = encode <$> maybeDep
@@ -78,7 +79,7 @@ renderDependency dk srcs = encode <$> maybeDep
         maybeDep = srcs ^? _Sources . ix (coerce dk)
 
 prettyConfig :: Config
-prettyConfig = defConfig {confIndent = Spaces 2}
+prettyConfig = defConfig {confIndent = Spaces 2, confCompare = compare }
 
 renameDependency :: DependencyKey -> DependencyKey -> Sources -> Sources
 renameDependency dkOld dkNew srcs = srcs & _Sources . at (coerce dkNew) .~ oldDep
