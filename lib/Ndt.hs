@@ -6,15 +6,16 @@ module Ndt ( trackDependency
            , Ndt.renameDependency
            ) where
 
+import qualified Control.Concurrent.MSem as MSem
 import           Control.Monad.Catch (MonadThrow)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.IO.Unlift (MonadUnliftIO)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.IO.Unlift (MonadUnliftIO, askRunInIO)
 import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson (Value)
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
-import           Lens.Micro.Platform ((<&>))
+import           Lens.Micro.Platform ((<&>), view)
 import           Ndt.Fetch
 import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency, renderDependency, renameDependency)
 import           Ndt.Types
@@ -35,6 +36,7 @@ trackDependency dk dep = fetchDependency dep >>= insert dk
 updateAllDependencies :: ( MonadUnliftIO m
                          , MonadThrow m
                          , MonadReader env m
+                         , HasJobLimit env
                          , HasNixPrefetchGitAction env
                          , HasNixPrefetchUrlAction env
                          , HasSourcesFile env
@@ -42,17 +44,23 @@ updateAllDependencies :: ( MonadUnliftIO m
                       => m ()
 updateAllDependencies = do
   Sources obj <- loadSources
-  forConcurrently_ (HM.keys obj) (updateDependency . coerce)
+  updateDependency . coerce . HM.keys $ obj
 
-updateDependency :: ( MonadThrow m
-                    , MonadIO m
+updateDependency :: ( MonadUnliftIO m
+                    , MonadThrow m
                     , MonadReader env m
+                    , HasJobLimit env
                     , HasNixPrefetchGitAction env
                     , HasNixPrefetchUrlAction env
                     , HasSourcesFile env)
-                 => DependencyKey
+                 => [DependencyKey]
                  -> m ()
-updateDependency dk = loadSources >>= lookupDependency dk >>= trackDependency dk
+updateDependency dks = do
+  js <- view jobLimitL
+  srcs <- loadSources
+  sem <- liftIO $ MSem.new js
+  runInIO <- askRunInIO
+  forConcurrently_ dks $ \dk -> liftIO $ MSem.with sem (runInIO $ lookupDependency dk srcs >>= trackDependency dk)
 
 deleteDependency :: ( MonadThrow m
                     , MonadReader env m

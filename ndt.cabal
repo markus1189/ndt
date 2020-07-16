@@ -75,6 +75,7 @@ library
                      , microlens-platform
                      , network-uri
                      , optparse-applicative
+                     , SafeSemaphore
                      , text
                      , typed-process
                      , mtl

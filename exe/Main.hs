@@ -24,7 +24,8 @@ data NdtEnv
       { _ndtEnvSourcesFile :: FilePath,
         _ndtEnvNixPrefetchGitAction :: NixPrefetchGitArgs -> IO Value,
         _ndtEnvNixPrefetchUrlAction :: NixPrefetchUrlArgs -> IO LBS.ByteString,
-        _ndtEnvLogFunc :: LogFunc
+        _ndtEnvLogFunc :: LogFunc,
+        _ndtEnvJobs :: Natural
       }
 
 instance HasLogFunc NdtEnv where
@@ -39,14 +40,18 @@ instance HasNixPrefetchGitAction NdtEnv where
 instance HasNixPrefetchUrlAction NdtEnv where
   nixPrefetchUrlActionL = lens _ndtEnvNixPrefetchUrlAction (\x y -> x {_ndtEnvNixPrefetchUrlAction = y})
 
-newtype NdtGlobalOpts
+instance HasJobLimit NdtEnv where
+  jobLimitL = lens _ndtEnvJobs (\x y -> x { _ndtEnvJobs = y})
+
+data NdtGlobalOpts
   = NdtGlobalOpts
       { _ndtGlobalSourcesFile :: FilePath
+      , _ndtGlobalConcurrentJobs :: Natural
       }
 
 data Command
   = TrackDependency DependencyKey Dependency
-  | UpdateDependency DependencyKey
+  | UpdateDependency [DependencyKey]
   | DeleteDependency DependencyKey
   | PrintNixFile
   | Initialize
@@ -66,6 +71,13 @@ commandParser =
                                                , showDefault
                                                , help "Read dependencies from SOURCES_FILE"
                                                , action "file"
+                                               ])
+                        <*> option natReadM (mconcat [ long "jobs"
+                                               , short 'j'
+                                               , metavar "JOBS"
+                                               , value 4
+                                               , showDefault
+                                               , help "How many jobs are allowed to run concurrently"
                                                ])
         )
     <*> ( hsubparser . mconcat $ [ command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
@@ -92,7 +104,7 @@ trackOptions =
     <*> hsubparser (command "github" (info trackGitHubOptions (progDesc "Track a GitHub repository")) <> command "url" (info trackUrlOptions (progDesc "Track a URL as download")))
 
 updateOptions :: Parser Command
-updateOptions = UpdateDependency <$> argument dkM (metavar "DEPENDENCY")
+updateOptions = UpdateDependency <$> many (argument dkM (metavar "DEPENDENCY"))
 
 showOptions :: Parser Command
 showOptions = ShowDependency <$> argument dkM (metavar "DEPENDENCY")
@@ -113,18 +125,18 @@ opts = info (commandParser <**> helper) (fullDesc <> header "Nix Dependency Trac
 
 main :: IO ()
 main = do
-  (NdtGlobalOpts sourcesFp, options) <- execParser opts
+  (NdtGlobalOpts sourcesFp js, options) <- execParser opts
   sourcesFilePresent <- doesFileExist sourcesFp
   when (not sourcesFilePresent && options /= Initialize) $
     throwM (UnreadableSources sourcesFp "no such file!")
   logOptions <- logOptionsHandle stderr False
   withLogFunc logOptions $ \lf -> do
-    let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess nixPrefetchUrlProcess lf
+    let ndtEnv = NdtEnv sourcesFp nixPrefetchGitProcess nixPrefetchUrlProcess lf js
     runRIO ndtEnv $ dispatch options
 
 dispatch :: Command -> RIO NdtEnv ()
 dispatch (TrackDependency dk d) = trackDependency dk d
-dispatch (UpdateDependency dk) = updateDependency dk
+dispatch (UpdateDependency dks) = updateDependency dks
 dispatch (DeleteDependency dk) = do
   logInfo $ "Deleting: '" <> display (coerce dk :: Text) <> "'"
   deleteDependency dk
@@ -149,6 +161,14 @@ uriReadM = eitherReader parseAbsoluteURI'
     parseAbsoluteURI' s = case parseAbsoluteURI s of
       Nothing -> Left $ "Not an absolute URI: '" <> s <> "'"
       Just u -> Right u
+
+natReadM :: ReadM Natural
+natReadM = eitherReader parse
+  where
+    parse s = case readMaybe s of
+      Nothing -> Left $ "cannot parse value " <> s
+      Just 0 -> Left "must be positive and greater than 0"
+      Just n -> Right n
 
 dkM :: ReadM DependencyKey
 dkM = maybeReader (Just . coerce . T.pack)

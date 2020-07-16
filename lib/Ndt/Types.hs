@@ -3,6 +3,7 @@ module Ndt.Types
   ( HasSourcesFile (..),
     HasNixPrefetchGitAction (..),
     HasNixPrefetchUrlAction (..),
+    HasJobLimit(..),
     NdtException (..),
     Dependency (..),
     DependencyKey(DependencyKey),
@@ -13,16 +14,17 @@ module Ndt.Types
   )
 where
 
-import Data.Coerce (coerce)
-import Data.Aeson (Value, FromJSON, ToJSON)
+import           Control.Exception (Exception)
+import           Data.Aeson (Value, FromJSON, ToJSON)
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Coerce (coerce)
+import           Data.HashMap.Strict (HashMap)
+import           Data.Text (Text)
 import qualified Data.Text as T
-import Network.URI (URI)
-import Control.Exception (Exception)
-import Data.Typeable (Typeable)
-import Data.Text (Text)
-import Lens.Micro.Platform (Lens', Traversal')
-import Data.HashMap.Strict (HashMap)
+import           Data.Typeable (Typeable)
+import           Lens.Micro.Platform (Lens', Traversal')
+import           Network.URI (URI)
+import           Numeric.Natural (Natural)
 
 newtype Sources = Sources (HashMap Text Value) deriving (FromJSON, ToJSON, Show, Eq)
 _Sources :: Traversal' Sources (HashMap Text Value)
@@ -42,6 +44,9 @@ class HasNixPrefetchGitAction cfg where
 
 class HasNixPrefetchUrlAction cfg where
   nixPrefetchUrlActionL :: Lens' cfg (NixPrefetchUrlArgs -> IO LBS.ByteString)
+
+class HasJobLimit cfg where
+  jobLimitL :: Lens' cfg Natural
 
 data NdtException
   = NixPrefetchGitFailed Int
