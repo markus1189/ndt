@@ -71,7 +71,7 @@ commandParser =
     <*> ( hsubparser . mconcat $ [ command "init" (info (pure Initialize) (progDesc "Initialize a new ndt project"))
                                  , command "track" (info trackOptions (progDesc "Track a new dependency"))
                                  , command "update-all" (info (pure UpdateAll) (progDesc "Update all all dependencies"))
-                                 , command "list" (info (pure ListDependencies) (progDesc "List all known dependencies"))
+                                 , command "ls" (info (pure ListDependencies) (progDesc "List all known dependencies"))
                                  , command "update" (info updateOptions (progDesc "Update a tracked dependency"))
                                  , command "show" (info showOptions (progDesc "Show a tracked dependency"))
                                  , command "rename" (info renameOptions (progDesc "Rename a tracked dependency"))
