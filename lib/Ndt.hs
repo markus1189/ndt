@@ -14,12 +14,13 @@ import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson (Value)
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
+import           Data.List (foldl')
 import           Data.Text (Text)
-import           Lens.Micro.Platform ((<&>), view)
+import           Lens.Micro.Platform (view)
 import           Ndt.Fetch
 import           Ndt.Sources (lookupDependency, insertDependency, loadSources, saveSources, withSources, removeDependency, renderDependency, renameDependency)
 import           Ndt.Types
-import           UnliftIO.Async (forConcurrently_)
+import           UnliftIO.Async (forConcurrently)
 
 trackDependency :: ( MonadThrow m
                    , MonadIO m
@@ -60,7 +61,8 @@ updateDependency dks = do
   srcs <- loadSources
   sem <- liftIO $ MSem.new js
   runInIO <- askRunInIO
-  forConcurrently_ dks $ \dk -> liftIO $ MSem.with sem (runInIO $ lookupDependency dk srcs >>= trackDependency dk)
+  deps <- forConcurrently dks $ \dk -> liftIO $ MSem.with sem (runInIO $ lookupDependency dk srcs >>= fetchDependency)
+  insertAll $ zip dks deps
 
 deleteDependency :: ( MonadThrow m
                     , MonadReader env m
@@ -70,6 +72,18 @@ deleteDependency :: ( MonadThrow m
                  -> m ()
 deleteDependency dk = withSources (removeDependency dk)
 
+insertAll :: ( MonadThrow m
+          , MonadIO m,
+            MonadReader env m
+          , HasSourcesFile env
+          )
+       => [(DependencyKey, Value)]
+       -> m ()
+insertAll dkvs = do
+  srcs <- loadSources
+  let srcs' = foldl' (\acc (dk,v) -> insertDependency dk v acc) srcs dkvs
+  saveSources srcs'
+
 insert :: ( MonadThrow m
           , MonadIO m,
             MonadReader env m
@@ -78,7 +92,7 @@ insert :: ( MonadThrow m
        => DependencyKey
        -> Value
        -> m ()
-insert dk v = loadSources <&> insertDependency dk v >>= saveSources
+insert dk v = insertAll [(dk,v)]
 
 showDependency :: ( MonadIO m
                   , MonadThrow m
