@@ -5,4 +5,4 @@ dontHaddock (
   disableDeadCodeElimination (
     disableExecutableProfiling (
       disableLibraryProfiling (
-        import ./default.nix {}))))
+        import ./default.nix { ghc = "ghc884"; }))))
