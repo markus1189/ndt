@@ -1,4 +1,4 @@
-{ ghc ? "ghc883"
+{ ghc
 , nixpkgs ? import <nixpkgs> {}
 }:
 
