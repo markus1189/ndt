@@ -1,5 +1,6 @@
 module Tests.Sources (sourcesTests) where
 
+import           Test.Hspec
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Lens (key, _String, _Bool)
 import           Data.Coerce (coerce)

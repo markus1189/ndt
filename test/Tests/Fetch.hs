@@ -1,6 +1,7 @@
 module Tests.Fetch (fetchTests) where
 
 import           Test.Tasty
+import           Test.Hspec
 import           Test.Tasty.Hspec
 
 import           Control.Monad.Reader (runReaderT)
