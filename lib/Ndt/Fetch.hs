@@ -10,12 +10,12 @@ import           Control.Monad.IO.Class (liftIO, MonadIO)
 import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson ((.=), Value)
 import qualified Data.Aeson as Aeson
-import           Data.Aeson.Lens (_Object)
+import           Data.Aeson.Lens -- orphans for KeyMap Ix
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List (stripPrefix)
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
-import           Lens.Micro.Platform (view, at, (&), (?~))
+import           Lens.Micro.Platform (view, (&), (?~))
 import           Ndt.Types
 import           Network.URI (URI)
 import qualified Network.URI as URI
@@ -29,10 +29,10 @@ fetchDependency (GithubDependency uri fetchSubmodules branchName) = do
   json <- nixPrefetchGit (NixPrefetchGitArgs uri fetchSubmodules branchName)
   let (owner, repo) = parseOwnerAndRepo uri
       json' =
-        json & _Object . at "owner" ?~ Aeson.toJSON owner
-          & _Object . at "repo" ?~ Aeson.toJSON repo
-          & _Object . at "type" ?~ "github"
-          & _Object . at "branch" ?~ Aeson.toJSON branchName
+        json & atKey "owner" ?~ Aeson.toJSON owner
+          & atKey "repo" ?~ Aeson.toJSON repo
+          & atKey "type" ?~ "github"
+          & atKey "branch" ?~ Aeson.toJSON branchName
   pure json'
 fetchDependency (UrlDependency uri storeName) = do
   sha256 <- nixPrefetchUrl (NixPrefetchUrlArgs uri storeName)

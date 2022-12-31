@@ -71,7 +71,7 @@ library
                      , aeson-pretty
                      , bytestring
                      , directory
-                     , lens-aeson
+                     , lens-aeson >= 1.2
                      , microlens-platform
                      , network-uri
                      , optparse-applicative
@@ -97,7 +97,7 @@ executable ndt
                      , aeson-pretty
                      , bytestring
                      , directory
-                     , lens-aeson
+                     , lens-aeson >= 1.2
                      , microlens-platform
                      , ndt
                      , network-uri
@@ -129,7 +129,7 @@ test-suite test
                      , microlens-platform
                      , mtl
                      , network-uri
-                     , lens-aeson
+                     , lens-aeson >= 1.2
                      , bytestring
                      , unordered-containers
                      , text

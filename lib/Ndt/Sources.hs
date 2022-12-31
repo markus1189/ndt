@@ -15,7 +15,7 @@ import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson (Value)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (Spaces), defConfig, encodePretty')
-import           Data.Aeson.Lens (_Bool, _Object, _String)
+import           Data.Aeson.Lens (_Bool, _String, key)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
@@ -33,11 +33,11 @@ lookupDependency dk (Sources json) = do
   case dep of
     Nothing -> throwM (NoSuchDependency dk)
     Just depValue -> do
-      let typ = depValue ^? _Object . ix "type" . _String
-          maybeUri = (depValue ^? _Object . ix "url" . _String . to T.unpack) >>= parseAbsoluteURI
-          fetchSubmodules = Just True == depValue ^? _Object . ix "fetchSubmodules" . _Bool
-          branchName = maybe "master" T.unpack $ depValue ^? _Object . ix "branch" . _String
-          storeName = depValue ^? _Object . ix "name" . _String . to T.unpack
+      let typ = depValue ^? key "type" . _String
+          maybeUri = (depValue ^? key "url" . _String . to T.unpack) >>= parseAbsoluteURI
+          fetchSubmodules = Just True == depValue ^? key "fetchSubmodules" . _Bool
+          branchName = maybe "master" T.unpack $ depValue ^? key "branch" . _String
+          storeName = depValue ^? key "name" . _String . to T.unpack
       case maybeUri of
         Nothing -> throwM (InvalidGitHubUri dk)
         Just uri ->

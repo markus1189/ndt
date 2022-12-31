@@ -7,9 +7,9 @@ import           Test.Tasty.Hspec
 import           Control.Monad.Reader (runReaderT)
 import           Data.Aeson (Value, (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as KeyMap
 import           Data.Aeson.Lens (key, _Object, _Bool, _String)
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Lens.Micro.Platform ((^?), (^?!), lens, to)
@@ -62,7 +62,7 @@ fetchTests = testSpec "fetch" $ do
 
     it "keeps all of the original attributes" $ do
       result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) plausibleOutput
-      let keys = result ^?! _Object . to HM.keys
+      let keys = result ^?! _Object . to KeyMap.keys
       keys `shouldContainAllOf` [ "url"
                                 , "rev"
                                 , "date"
@@ -75,7 +75,7 @@ fetchTests = testSpec "fetch" $ do
 
     it "adds some custom attributes" $ do
       result <- runReaderT (fetchDependency (GithubDependency ndtUri False "master")) plausibleOutput
-      let keys = result ^?! _Object . to HM.keys
+      let keys = result ^?! _Object . to KeyMap.keys
       keys `shouldContainAllOf` [ "owner"
                                 , "repo"
                                 , "type"
@@ -86,7 +86,7 @@ fetchTests = testSpec "fetch" $ do
     it "adds some custom attributes" $ do
       let storeName = Just "my-custom-store-name"
       result <- runReaderT (fetchDependency (UrlDependency ndtUri storeName)) plausibleOutput
-      let keys = result ^?! _Object . to HM.keys
+      let keys = result ^?! _Object . to KeyMap.keys
       keys `shouldMatchList` ["url", "type", "sha256", "name"]
       result ^? key "type" . _String `shouldBe` Just "url"
       result ^? key "name" . _String `shouldBe` T.pack <$> storeName
