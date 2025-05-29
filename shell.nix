@@ -1,1 +1,1 @@
-(import ./default.nix {}).env
+(import ./default.nix { ghc = "ghc912"; }).env
