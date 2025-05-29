@@ -14,7 +14,6 @@ import           Control.Monad.Reader (MonadReader)
 import           Data.Aeson (Value)
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
-import           Data.List (foldl')
 import           Data.Text (Text)
 import           Lens.Micro.Platform (view)
 import           Ndt.Fetch
