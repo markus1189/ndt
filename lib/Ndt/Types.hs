@@ -21,7 +21,6 @@ import           Data.Coerce (coerce)
 import           Data.HashMap.Strict (HashMap)
 import           Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Typeable (Typeable)
 import           Lens.Micro.Platform (Lens', Traversal')
 import           Network.URI (URI)
 import           Numeric.Natural (Natural)
@@ -57,7 +56,6 @@ data NdtException
   | InvalidGitHubUri DependencyKey
   | MissingFieldInSources Text
   | UnknownDependencyType DependencyKey Text
-  deriving (Typeable)
 
 instance Exception NdtException
 
