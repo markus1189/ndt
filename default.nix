@@ -11,6 +11,7 @@ let
   drvWithInputs = modifiedDrv.overrideAttrs (old: {
     buildInputs = old.buildInputs ++ [
       nixpkgs.nix-prefetch-git
+      nixpkgs.nix
     ];
 
     nativeBuildInputs = old.nativeBuildInputs ++ [
@@ -30,6 +31,7 @@ let
 
       wrapProgram $out/bin/ndt --prefix PATH : ${nixpkgs.lib.makeBinPath [
         nixpkgs.nix-prefetch-git
+        nixpkgs.nix
       ]}
     '';
   });
