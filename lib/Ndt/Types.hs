@@ -54,7 +54,7 @@ data NdtException
   | NoSuchDependency DependencyKey
   | UnreadableSources FilePath String
   | InvalidGitHubUri DependencyKey
-  | MissingFieldInSources Text
+  | InvalidUrl DependencyKey
   | UnknownDependencyType DependencyKey Text
 
 instance Exception NdtException
@@ -66,7 +66,7 @@ instance Show NdtException where
   show (NoSuchDependency dk) = "could not find dependency: " <> T.unpack (coerce dk)
   show (UnreadableSources fp msg) = "could not read " <> fp <> ": " <> msg
   show (InvalidGitHubUri dk) = "invalid/missing github uri for dependency: " <> T.unpack (coerce dk)
-  show (MissingFieldInSources key) = "INTERNAL ERROR: could not find field in sources: " <> T.unpack key
+  show (InvalidUrl dk) = "invalid/missing url for dependency: " <> T.unpack (coerce dk)
   show (UnknownDependencyType dk typ) = "Unknown dependency type: '" <> T.unpack typ <> "' for dependency: " <> T.unpack (coerce dk)
 
 data Dependency

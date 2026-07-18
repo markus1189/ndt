@@ -38,14 +38,15 @@ lookupDependency dk (Sources json) = do
           fetchSubmodules = Just True == depValue ^? key "fetchSubmodules" . _Bool
           branchName = maybe "master" T.unpack $ depValue ^? key "branch" . _String
           storeName = depValue ^? key "name" . _String . to T.unpack
-      case maybeUri of
-        Nothing -> throwM (InvalidGitHubUri dk)
-        Just uri ->
-          case typ of
-            Just "github" -> pure (GithubDependency uri fetchSubmodules branchName)
-            Just "url" ->  pure (UrlDependency uri storeName)
-            Just t -> throwM (UnknownDependencyType dk t)
-            Nothing -> throwM (UnknownDependencyType dk "<not present>")
+      case typ of
+        Just "github" -> case maybeUri of
+          Just uri -> pure (GithubDependency uri fetchSubmodules branchName)
+          Nothing -> throwM (InvalidGitHubUri dk)
+        Just "url" -> case maybeUri of
+          Just uri -> pure (UrlDependency uri storeName)
+          Nothing -> throwM (InvalidUrl dk)
+        Just t -> throwM (UnknownDependencyType dk t)
+        Nothing -> throwM (UnknownDependencyType dk "<not present>")
 
 insertDependency :: DependencyKey -> Value -> Sources -> Sources
 insertDependency dk value srcs = srcs & _Sources . at (coerce dk) ?~ value
